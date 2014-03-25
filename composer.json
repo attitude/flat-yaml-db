@@ -15,6 +15,6 @@
     "require": {
         "symfony/yaml": "dev-master",
         "attitude/Elements": "0.1.*",
-        "attitude/Elements/Singleton": "0.2.*",
+        "attitude/Elements/Singleton": "0.2.*"
     }
 }

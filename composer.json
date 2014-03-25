@@ -1,0 +1,20 @@
+{
+    "name": "attitude/FlatYAMLDB",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/attitude/elements"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/attitude/elements-singleton"
+        }
+    ],
+    "require": {
+        "symfony/yaml": "dev-master",
+        "attitude/Elements": "0.1.*",
+        "attitude/Elements/Singleton": "0.2.*",
+    }
+}

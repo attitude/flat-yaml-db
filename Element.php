@@ -214,10 +214,14 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
         foreach ($data as $k => &$v) {
             switch($k) {
+                case 'content':
                 case 'item':
                 case 'items':
+                case 'pagination':
+                case 'shoppingCart':
                 case 'template':
-                case 'content':
+                case 'website':
+                case 'websiteSettings':
                     $result[$k] = $v;
                     break;
                 default:

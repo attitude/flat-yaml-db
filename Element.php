@@ -40,8 +40,8 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
             $document = $document."\n...";
             $data = Yaml::parse($document);
-            if (isset($data['collection']['id'])) {
-                $this->data[$data['collection']['id']] =$data;
+            if (isset($data['_id']) && isset($data['_type'])) {
+                $this->data[$data['_type'].'.'.$data['_id']] = $data;
             }
         }
 
@@ -54,27 +54,25 @@ class FlatYAMLDB_Element extends Singleton_Prototype
     protected function createDBIndex()
     {
         foreach ($this->data as $document) {
-            foreach (DependencyContainer::get('yamldb::indexes', array()) as $meta => $indexes) {
-                if (! isset($document[$meta])) {
+            if (!isset($document['_id']) || !isset($document['_type'])) {
+                continue;
+            }
+
+            foreach ((array)DependencyContainer::get('yamldb::indexes', array()) as $index) {
+                if ($index==='_id') {
                     continue;
                 }
 
-                foreach ((array) $indexes as $index) {
-                    if ($index==='id') {
-                        continue;
-                    }
-
-                    if (isset($document[$meta][$index])) {
-                        $data =& $document[$meta][$index];
-                        if(is_array($data)) {
-                            foreach ($data as &$subdata) {
-                                if (! is_array($subdata)) {
-                                    $this->addIndex($meta.'::'.$index, $subdata, $document['collection']['id']);
-                                }
+                if (isset($document[$index])) {
+                    $data =& $document[$index];
+                    if(is_array($data)) {
+                        foreach ($data as &$subdata) {
+                            if (! is_array($subdata)) {
+                                $this->addIndex($index, $subdata, $document['_type'].'.'.$document['_id']);
                             }
-                        } else {
-                            $this->addIndex($meta.'::'.$index, $data, $document['collection']['id']);
                         }
+                    } else {
+                        $this->addIndex($index, $data, $document['_type'].'.'.$document['_id']);
                     }
                 }
             }
@@ -95,21 +93,34 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         return $this;
     }
 
-    protected function searchIndex($index, $value, $context = 'collection')
+    protected function searchIndex($index, $value)
     {
-        if ($index==='id' && isset($this->data[$value])) {
+        if ($index==='_id' && isset($this->data[$value])) {
             return (array) $value;
         }
 
-        if (isset($this->indexes[$context.'::'.$index][$value])) {
-            return $this->indexes[$context.'::'.$index][$value];
+        if (isset($this->indexes[$index][$value])) {
+            return $this->indexes[$index][$value];
         }
 
         return array();
     }
 
-    public function query($query)
+    public function query($query, $keep_metadata = false)
     {
+        $limit  = (isset($query['_limit']))  ? $query['_limit']  : 0;
+        $offset = (isset($query['_offset'])) ? $query['_offset'] : 0;
+
+        unset($query['_limit'], $query['_offset']);
+
+        if (isset($query['_id'])) {
+            if (!isset($query['_type'])) {
+                throw new HTTPException(500, 'Querying by id requires passing type');
+            }
+
+            $query['_id'] = $query['_type'].'.'.$query['_id'];
+        }
+
         foreach($query as $search => $value) {
             $subsets[] = $this->searchIndex($search, $value);
         }
@@ -136,12 +147,28 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
         foreach (array($intersection) as $ids) {
             foreach ($ids as $id) {
-                $results[] = $this->data[$id];
+                if ($keep_metadata) {
+                    $results[] = $this->data[$id];
+                } else {
+                    $data = $this->data[$id];
+
+                    foreach ($data as $k => &$v) {
+                        if ($k[0]==='_') {
+                            unset($data[$k]);
+                        }
+                    }
+
+                    $results[] = $data;
+                }
             }
         }
 
         if (empty($results)) {
             throw new HTTPException(404, 'Your query returned zero results');
+        }
+
+        if (isset($query['_id']) || $limit===1) {
+            return $results[0];
         }
 
         return $results;
@@ -177,9 +204,28 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
     public function getCollection($uri = '/')
     {
-        return $this->query(array(
-            "type" => "page",
-            "route" => $uri
-        ));
+        $data = $this->query(array(
+            '_type' => "collection",
+            'route' => $uri,
+            '_limit' => 1
+        ), true);
+
+        $result = array('collection' => array());
+
+        foreach ($data as $k => &$v) {
+            switch($k) {
+                case 'item':
+                case 'items':
+                case 'template':
+                case 'content':
+                    $result[$k] = $v;
+                    break;
+                default:
+                    $result['collection'][$k] = $v;
+                    break;
+            }
+        }
+
+        return $result;
     }
 }

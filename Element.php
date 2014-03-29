@@ -230,6 +230,10 @@ class FlatYAMLDB_Element extends Singleton_Prototype
             }
         }
 
+        if (!isset($result['items'])) {
+            $result['items'] = array('query()' => array('_collection' => $data['_id']));
+        }
+
         return $result;
     }
 }

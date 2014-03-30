@@ -204,11 +204,19 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
     public function getCollection($uri = '/')
     {
-        $data = $this->query(array(
-            '_type' => "collection",
-            'route' => $uri,
-            '_limit' => 1
-        ), true);
+        try {
+            $data = $this->query(array(
+                '_type' => "collection",
+                'route' => $uri,
+                '_limit' => 1
+            ), true);
+        } catch (HTTPException $e) {
+            $data = $this->query(array(
+                '_type' => "item",
+                'route' => $uri,
+                '_limit' => 1
+            ), true);
+        }
 
         $result = array('collection' => array());
 
@@ -225,6 +233,12 @@ class FlatYAMLDB_Element extends Singleton_Prototype
                     $result[$k] = $v;
                     break;
                 default:
+                    if ($data['_type']==='item') {
+                        $result['item'][$k] = $v;
+
+                        break;
+                    }
+
                     $result['collection'][$k] = $v;
                     break;
             }
@@ -232,6 +246,14 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
         if (!isset($result['items'])) {
             $result['items'] = array('query()' => array('_collection' => $data['_id']));
+        }
+
+        if (!isset($result['website'])) {
+            $result['website'] = array('query()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+        }
+
+        if (empty($result['collection']) && isset($result['item']['_collection'])) {
+            $result['collection'] = array('query()' => array('_type' => 'collection', '_id' => $result['item']['_collection']));
         }
 
         return $result;

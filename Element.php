@@ -259,7 +259,20 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         if (empty($result['collection']) && isset($result['item']['_collection'])) {
-            $result['collection'] = array('query()' => array('_type' => 'collection', '_id' => $result['item']['_collection']));
+            try {
+                $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
+            } catch(HTTPException $e) {
+                throw new HTTPException(404, 'Item has no collection defined');
+            }
+        }
+
+        if (!isset($result['collection']['breadcrumbs'])) {
+            $result['collection']['breadcrumbs'][] = array('link()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+            $result['collection']['breadcrumbs'][] = array('link()' => array('_type' => 'collection', '_id' => $result['collection']['_id']));
+
+            if (isset($result['item'])) {
+                $result['collection']['breadcrumbs'][] = array('link()' => array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
+            }
         }
 
         return $result;

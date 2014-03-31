@@ -208,6 +208,70 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         return false;
     }
 
+    public function expanderLink($args)
+    {
+        $language = DependencyContainer::get('global::language');
+
+        try {
+            $page = $this->query($args);
+
+            $result = array();
+
+            if (isset($page['navigationTitle'])) {
+                $result['text'] = $page['navigationTitle'];
+            } elseif (isset($page['title'])) {
+                $result['text'] = $page['title'];
+            } else {
+                $result['text'] = '';
+            }
+
+            if (isset($page['route'])) {
+                if (is_string($page['route'])) {
+                    $page['route'] = "/{$language['code']}".$page['route'];
+                } else {
+                    foreach ($page['route'] as &$v) {
+                        $v = "/{$language['code']}".$v;
+                    }
+                }
+
+                $result['href'] = $page['route'];
+            }
+
+            if (isset($page['title'])) {
+                $result['title'] = $page['title'];
+            }
+
+            return $result;
+        } catch (HTTPException $e) {
+            throw $e;
+        }
+
+        throw new HTTPException(404, 'Failed to expand link().');
+    }
+
+    public function expanderQuery($args) {
+        if (is_assoc_array($args)) {
+            $args = array($args);
+        }
+
+        $results = array();
+        
+        try {
+            foreach($args as $subargs) {
+                $subresults = $this->query($subargs);
+                $results = array_merge($results, $subresults);
+            }
+        } catch (HTTPException $e) {
+            throw $e;
+        }
+
+        if (!empty($results)) {
+            return $results;
+        }
+
+        throw new HTTPException(404, 'Failed to expand query().');
+    }
+
     public function getCollection($uri = '/')
     {
         try {

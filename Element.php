@@ -208,6 +208,54 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         return false;
     }
 
+    private function linkToData($data)
+    {
+        if (is_assoc_array($data)) {
+            return $this->linkToItem($data);
+        }
+
+        $links = array();
+        foreach ($data as $subdata) {
+            $links[] = $this->linkToItem($subdata);
+        }
+
+        return $links;
+    }
+
+    private function linkToItem($data)
+    {
+        $result = array();
+        $language = DependencyContainer::get('global::language', null);
+
+        if (isset($data['navigationTitle'])) {
+            $result['text'] = $data['navigationTitle'];
+        } elseif (isset($data['title'])) {
+            $result['text'] = $data['title'];
+        } else {
+            $result['text'] = '';
+        }
+
+        if (isset($data['route'])) {
+            if ($language) {
+                if (is_string($data['route'])) {
+                    $data['route'] = "/{$language['code']}".$data['route'];
+                } else {
+                    foreach ($data['route'] as &$v) {
+                        $v = "/{$language['code']}".$v;
+                    }
+                }
+            }
+
+            $result['href'] = $data['route'];
+        }
+
+        if (isset($data['title'])) {
+            $result['title'] = $data['title'];
+        }
+
+        return $result;
+    }
+
     public function expanderLink($args)
     {
         $language = DependencyContainer::get('global::language');

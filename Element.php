@@ -236,6 +236,14 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
         $result['href'] = $this->hrefToItem($data);
 
+        foreach ((array) $result['href'] as $url) {
+            if ($url===$_SERVER['REQUEST_URI']) {
+                $result['current'] = true;
+
+                break;
+            }
+        }
+
         if (isset($data['title'])) {
             $result['title'] = $data['title'];
         }
@@ -423,6 +431,8 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         $traverse--;
 
         if ($traverse==0) {
+            $breadcrumbs[(sizeof($breadcrumbs)-1)]['home'] = true;
+
             return array_reverse($breadcrumbs);
         }
 

@@ -401,7 +401,7 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         if (!isset($result['collection']['breadcrumbs'])) {
-            if (isset($result['item'])) {
+            if ($data['_type']==='item') {
                 $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
             } else {
                 $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['collection']['_type'], '_id' => $result['collection']['_id']));

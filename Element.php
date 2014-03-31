@@ -277,7 +277,7 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         $results = array();
-        
+
         try {
             foreach($args as $subargs) {
                 $subresults = $this->query($subargs);
@@ -353,16 +353,39 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         if (!isset($result['collection']['breadcrumbs'])) {
-            if ($result['collection']['route'] !== '/') {
-                $result['collection']['breadcrumbs'][] = array('link()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
-            }
-            $result['collection']['breadcrumbs'][] = array('link()' => array('_type' => 'collection', '_id' => $result['collection']['_id']));
-
             if (isset($result['item'])) {
-                $result['collection']['breadcrumbs'][] = array('link()' => array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
+                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
+            } else {
+                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['collection']['_type'], '_id' => $result['collection']['_id']));
             }
         }
 
         return $result;
+    }
+
+    public function generateBreadcrumbs($args, $children = false, $levels = 0)
+    {
+        static $traverse = 0;
+
+        $traverse++;
+
+        $breadcrumbs = array();
+        try {
+            $item = $this->query($args, true);
+
+            $breadcrumbs[] = $this->linkToData($item);
+
+            if (isset($item['_collection'])) {
+                $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('_type' => 'collection', '_id' => $item['_collection'])));
+            }
+        } catch (HTTPException $e) {
+        }
+        $traverse--;
+
+        if ($traverse==0) {
+            return array_reverse($breadcrumbs);
+        }
+
+        return $breadcrumbs;
     }
 }

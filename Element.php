@@ -225,7 +225,6 @@ class FlatYAMLDB_Element extends Singleton_Prototype
     private function linkToItem($data)
     {
         $result = array();
-        $language = DependencyContainer::get('global::language', null);
 
         if (isset($data['navigationTitle'])) {
             $result['text'] = $data['navigationTitle'];
@@ -235,7 +234,20 @@ class FlatYAMLDB_Element extends Singleton_Prototype
             $result['text'] = '';
         }
 
+        $result['href'] = $this->hrefToItem($data);
+
+        if (isset($data['title'])) {
+            $result['title'] = $data['title'];
+        }
+
+        return $result;
+    }
+
+    public function hrefToItem($data)
+    {
         if (isset($data['route'])) {
+            $language = DependencyContainer::get('global::language');
+
             if ($language) {
                 if (is_string($data['route'])) {
                     $data['route'] = "/{$language['code']}".$data['route'];
@@ -246,20 +258,14 @@ class FlatYAMLDB_Element extends Singleton_Prototype
                 }
             }
 
-            $result['href'] = $data['route'];
+            return $data['route'];
         }
 
-        if (isset($data['title'])) {
-            $result['title'] = $data['title'];
-        }
-
-        return $result;
+        return '#missingroute';
     }
 
     public function expanderLink($args)
     {
-        $language = DependencyContainer::get('global::language');
-
         try {
             $data = $this->query($args);
 
@@ -292,6 +298,40 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         throw new HTTPException(404, 'Failed to expand query().');
+    }
+
+    public function expanderHref($args)
+    {
+        try {
+            $data = $this->query($args);
+
+            return $this->hrefToItem($data);
+        } catch (HTTPException $e) {
+            throw $e;
+        }
+
+        throw new HTTPException(404, 'Failed to expand href().');
+    }
+
+    public function expanderTitle($args)
+    {
+        try {
+            $data = $this->query($args);
+
+            if (isset($data['title'])) {
+                return $data['title'];
+            }
+
+            if (isset($data['navigationTitle'])) {
+                return $data['navigationTitle'];
+            }
+
+            return 'N/A';
+        } catch (HTTPException $e) {
+            throw $e;
+        }
+
+        throw new HTTPException(404, 'Failed to expand href().');
     }
 
     public function getCollection($uri = '/')

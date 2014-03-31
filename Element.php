@@ -213,35 +213,9 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         $language = DependencyContainer::get('global::language');
 
         try {
-            $page = $this->query($args);
+            $data = $this->query($args);
 
-            $result = array();
-
-            if (isset($page['navigationTitle'])) {
-                $result['text'] = $page['navigationTitle'];
-            } elseif (isset($page['title'])) {
-                $result['text'] = $page['title'];
-            } else {
-                $result['text'] = '';
-            }
-
-            if (isset($page['route'])) {
-                if (is_string($page['route'])) {
-                    $page['route'] = "/{$language['code']}".$page['route'];
-                } else {
-                    foreach ($page['route'] as &$v) {
-                        $v = "/{$language['code']}".$v;
-                    }
-                }
-
-                $result['href'] = $page['route'];
-            }
-
-            if (isset($page['title'])) {
-                $result['title'] = $page['title'];
-            }
-
-            return $result;
+            return $this->linkToData($data);
         } catch (HTTPException $e) {
             throw $e;
         }

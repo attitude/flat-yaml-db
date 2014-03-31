@@ -147,6 +147,12 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
         foreach (array($intersection) as $ids) {
             foreach ($ids as $id) {
+                $result =& $this->data[$id];
+
+                if (!isset($result['link']) && isset($result['route']) && isset($result['_type']) && isset($result['_id'])) {
+                    $result['link'] = array('link()' => array('_type' => $result['_type'], '_id' => $result['_id']));
+                }
+
                 if ($keep_metadata) {
                     $results[] = $this->data[$id];
                 } else {

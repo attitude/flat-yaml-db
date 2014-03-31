@@ -267,7 +267,9 @@ class FlatYAMLDB_Element extends Singleton_Prototype
         }
 
         if (!isset($result['collection']['breadcrumbs'])) {
-            $result['collection']['breadcrumbs'][] = array('link()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+            if ($result['collection']['route'] !== '/') {
+                $result['collection']['breadcrumbs'][] = array('link()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+            }
             $result['collection']['breadcrumbs'][] = array('link()' => array('_type' => 'collection', '_id' => $result['collection']['_id']));
 
             if (isset($result['item'])) {

@@ -4,17 +4,32 @@ namespace attitude;
 
 use \Symfony\Component\Yaml\Yaml;
 use \attitude\Elements\HTTPException;
-use \attitude\Elements\Singleton_Prototype;
 use \attitude\Elements\DependencyContainer;
 
-class FlatYAMLDB_Element extends Singleton_Prototype
+class FlatYAMLDB_Element
 {
+    private $filepath;
+    private $cache_filepath = null;
+
     private $data = array();
     private $indexes = array();
 
-    protected function __construct()
+    public function __construct($filepath, $indexes = array(), $nocache = false)
     {
-        if (! DependencyContainer::get('yamldb::cache') || $this->cacheNeedsReload()) {
+        if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
+            throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
+        }
+
+        $this->filepath       = $filepath;
+        $this->cache_filepath = $filepath.DependencyContainer::get('yamldb::cacheAdd', '.json');
+
+        foreach ($this->indexes as $index) {
+            if (is_string($index) && strlen(trim($index)) > 0) {
+                $this->indexes[] = $index;
+            }
+        }
+
+        if ($nocache || $this->cacheNeedsReload()) {
             header('X-Using-DB-Cache: false');
 
             $this->loadYAML();
@@ -29,7 +44,7 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
     protected function loadYAML()
     {
-        $db = explode('...', file_get_contents(DependencyContainer::get('yamldb::source')));
+        $db = explode('...', file_get_contents($this->filepath));
 
         foreach ($db as $document) {
             $document = trim($document);
@@ -58,7 +73,7 @@ class FlatYAMLDB_Element extends Singleton_Prototype
                 continue;
             }
 
-            foreach ((array)DependencyContainer::get('yamldb::indexes', array()) as $index) {
+            foreach ((array) $this->indexes as $index) {
                 if ($index==='_id') {
                     continue;
                 }
@@ -182,12 +197,21 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
     protected function loadCache()
     {
+        $cache = json_decode(file_get_contents($this->cache_filepath), true);
+
+        if (!isset($cache['indexes']) || !isset($cache['data'])) {
+            throw new Exception(500, 'Cache is damadged');
+        }
+
+        $this->indexes = $cache['indexes'];
+        $this->data    = $cache['data'];
+
         return $this;
     }
 
     protected function storeCache()
     {
-        file_put_contents(DependencyContainer::get('yamldb::cache.source'), json_encode(array(
+        file_put_contents($this->cache_filepath, json_encode(array(
             'indexes' => $this->indexes,
             'data'    => $this->data
         ), JSON_PRETTY_PRINT));
@@ -197,11 +221,11 @@ class FlatYAMLDB_Element extends Singleton_Prototype
 
     protected function cacheNeedsReload()
     {
-        if (! file_exists(DependencyContainer::get('yamldb::cache.source'))) {
+        if (! file_exists($this->cache_filepath)) {
             return true;
         }
 
-        if (filemtime(DependencyContainer::get('yamldb::cache.source')) < filemtime(DependencyContainer::get('yamldb::source'))) {
+        if (filemtime($this->cache_filepath) < filemtime($this->filepath)) {
             return true;
         }
 

@@ -44,7 +44,7 @@ class FlatYAMLDB_Element
 
     protected function loadYAML()
     {
-        $db = explode('...', file_get_contents($this->filepath));
+        $db = explode('\n...', trim(file_get_contents($this->filepath)));
 
         foreach ($db as $document) {
             $document = trim($document);
@@ -53,7 +53,7 @@ class FlatYAMLDB_Element
                 continue;
             }
 
-            $document = $document."\n...";
+            $document = substr($document, 0, 3) === '---' ? $document."\n..." : "---\n".$document."\n...";
             $data = Yaml::parse($document);
             if (isset($data['_id']) && isset($data['_type'])) {
                 $this->data[$data['_type'].'.'.$data['_id']] = $data;

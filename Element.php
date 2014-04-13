@@ -13,8 +13,9 @@ class FlatYAMLDB_Element
 
     protected $data = array();
     protected $indexes = array();
+    protected $index_keys = array();
 
-    public function __construct($filepath, $indexes = array(), $nocache = false)
+    public function __construct($filepath, $index_keys = array(), $nocache = false)
     {
         if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
@@ -23,9 +24,9 @@ class FlatYAMLDB_Element
         $this->filepath       = $filepath;
         $this->cache_filepath = $filepath.DependencyContainer::get('yamldb::cacheAdd', '.json');
 
-        foreach ($indexes as $index) {
-            if (is_string($index) && strlen(trim($index)) > 0) {
-                $this->indexes[] = $index;
+        foreach ($index_keys as $index_key) {
+            if (is_string($index_key) && strlen(trim($index_key)) > 0) {
+                $this->index_keys[] = $index_key;
             }
         }
 

@@ -25,21 +25,21 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 continue;
             }
 
-            foreach ((array) $this->indexes as $index) {
-                if ($index==='_id') {
+            foreach ((array) $this->index_keys as $index_key) {
+                if ($index_key==='_id') {
                     continue;
                 }
 
-                if (isset($document[$index])) {
-                    $data =& $document[$index];
+                if (isset($document[$index_key])) {
+                    $data =& $document[$index_key];
                     if(is_array($data)) {
                         foreach ($data as &$subdata) {
                             if (! is_array($subdata)) {
-                                $this->addIndex($index, $subdata, $document['_type'].'.'.$document['_id']);
+                                $this->addIndex($index_key, $subdata, $document['_type'].'.'.$document['_id']);
                             }
                         }
                     } else {
-                        $this->addIndex($index, $data, $document['_type'].'.'.$document['_id']);
+                        $this->addIndex($index_key, $data, $document['_type'].'.'.$document['_id']);
                     }
                 }
             }

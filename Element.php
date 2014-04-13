@@ -54,14 +54,18 @@ class FlatYAMLDB_Element
             }
 
             $document = substr($document, 0, 3) === '---' ? $document."\n..." : "---\n".$document."\n...";
-            $data = Yaml::parse($document);
-            if (isset($data['_id']) && isset($data['_type'])) {
-                $this->data[$data['_type'].'.'.$data['_id']] = $data;
-            }
+            $this->addData(Yaml::parse($document));
         }
 
         $this->createDBIndex();
         $this->storeCache();
+
+        return $this;
+    }
+
+    protected function addData($data)
+    {
+        $this->data[] = $data;
 
         return $this;
     }

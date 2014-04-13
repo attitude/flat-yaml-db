@@ -9,6 +9,15 @@ use \attitude\Elements\DependencyContainer;
 
 class ContentDB_Element extends FlatYAMLDB_Element
 {
+    protected function addData($data)
+    {
+        if (isset($data['_id']) && isset($data['_type'])) {
+            $this->data[$data['_type'].'.'.$data['_id']] = $data;
+        }
+
+        return $this;
+    }
+
     protected function createDBIndex()
     {
         foreach ($this->data as $document) {
@@ -190,7 +199,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
         throw new HTTPException(404, 'Failed to expand link().');
     }
 
-    public function expanderQuery($args) {
+    public function expanderQuery($args)
+    {
         if (is_assoc_array($args)) {
             $args = array($args);
         }

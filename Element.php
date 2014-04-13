@@ -23,7 +23,7 @@ class FlatYAMLDB_Element
         $this->filepath       = $filepath;
         $this->cache_filepath = $filepath.DependencyContainer::get('yamldb::cacheAdd', '.json');
 
-        foreach ($this->indexes as $index) {
+        foreach ($indexes as $index) {
             if (is_string($index) && strlen(trim($index)) > 0) {
                 $this->indexes[] = $index;
             }
@@ -39,12 +39,18 @@ class FlatYAMLDB_Element
             $this->loadCache();
         }
 
+        // Something might get wrong last time
+        if (empty($this->data)) {
+            header('X-Using-DB-Cache: false');
+            $this->loadYAML();
+        }
+
         return $this;
     }
 
     protected function loadYAML()
     {
-        $db = explode('\n...', trim(file_get_contents($this->filepath)));
+        $db = explode("\n...", trim(file_get_contents($this->filepath)));
 
         foreach ($db as $document) {
             $document = trim($document);
@@ -54,7 +60,12 @@ class FlatYAMLDB_Element
             }
 
             $document = substr($document, 0, 3) === '---' ? $document."\n..." : "---\n".$document."\n...";
-            $this->addData(Yaml::parse($document));
+
+            try {
+                $this->addData(Yaml::parse($document));
+            } catch (\Exception $e) {
+                trigger_error($e->getMessage()." in document:\n".$document);
+            }
         }
 
         $this->createDBIndex();

@@ -78,6 +78,10 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
                 return $one;
             }
 
+            if (!$other) {
+                return $one;
+            }
+
             return $other;
         }
 

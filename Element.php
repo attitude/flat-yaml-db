@@ -84,6 +84,23 @@ class FlatYAMLDB_Element
 
     protected function createDBIndex()
     {
+        foreach ($this->data as $array_index => $document) {
+            foreach ((array) $this->index_keys as $index_key) {
+                if (isset($document[$index_key])) {
+                    $data =& $document[$index_key];
+                    if(is_array($data)) {
+                        foreach ($data as &$subdata) {
+                            if (! is_array($subdata)) {
+                                $this->addIndex($index_key, $subdata, $array_index);
+                            }
+                        }
+                    } else {
+                        $this->addIndex($index_key, $data, $array_index);
+                    }
+                }
+            }
+        }
+
         return $this;
     }
 
@@ -110,6 +127,80 @@ class FlatYAMLDB_Element
         }
 
         return array();
+    }
+
+    public function query($query, $keep_metadata = false)
+    {
+        $limit  = (isset($query['_limit']))  ? $query['_limit']  : 0;
+        $offset = (isset($query['_offset'])) ? $query['_offset'] : 0;
+
+        unset($query['_limit'], $query['_offset']);
+
+        if (isset($query['_id'])) {
+            if (!isset($query['_type'])) {
+                throw new HTTPException(500, 'Querying by id requires passing type');
+            }
+
+            $query['_id'] = $query['_type'].'.'.$query['_id'];
+        }
+
+        foreach($query as $search => $value) {
+            $subsets[] = $this->searchIndex($search, $value);
+        }
+
+        $intersection = null;
+
+        foreach ($subsets as $subset) {
+            if (empty($subset)) {
+                $intersection = array();
+
+                break;
+            }
+
+            if ($intersection == null) {
+                $intersection = $subset;
+
+                continue;
+            }
+
+            $intersection = array_intersect($intersection, $subset);
+        }
+
+        $results = array();
+
+        foreach (array($intersection) as $ids) {
+            foreach ($ids as $id) {
+                $result =& $this->data[$id];
+
+                if (!isset($result['link']) && isset($result['route']) && isset($result['_type']) && isset($result['_id'])) {
+                    $result['link'] = array('link()' => array('_type' => $result['_type'], '_id' => $result['_id']));
+                }
+
+                if ($keep_metadata) {
+                    $results[] = $this->data[$id];
+                } else {
+                    $data = $this->data[$id];
+
+                    foreach ($data as $k => &$v) {
+                        if ($k[0]==='_') {
+                            unset($data[$k]);
+                        }
+                    }
+
+                    $results[] = $data;
+                }
+            }
+        }
+
+        if (empty($results)) {
+            throw new HTTPException(404, 'Your query returned zero results');
+        }
+
+        if (isset($query['_id']) || $limit===1) {
+            return $results[0];
+        }
+
+        return $results;
     }
 
     protected function loadCache()

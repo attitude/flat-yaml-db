@@ -185,6 +185,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
     public function getCollection($uri = '/')
     {
+        // In most cases we look for a collection: an archive or parent page,
+        // listing of related items
         try {
             $data = $this->query(array(
                 '_type' => "collection",
@@ -192,6 +194,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 '_limit' => 1
             ), true);
         } catch (HTTPException $e) {
+            // But maybe we're about to displate one of the items
             $data = $this->query(array(
                 '_type' => "item",
                 'route' => $uri,

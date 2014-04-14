@@ -202,29 +202,33 @@ class ContentDB_Element extends FlatYAMLDB_Element
             ), true);
         }
 
-        $result = array('collection' => array());
+        $result = array(
+            'website'         => null,
+            'websiteSettings' => null,
+            'item'            => $data,
+            'collection'      => null,
+            'items'           => null,
+            'template'        => null,
+            'shoppingCart'    => null,
+            'showCart'        => null,
+            'calendarView'    => null,
+            'pagination'      => null
+        );
 
+        // Walk item data
         foreach ($data as $k => &$v) {
-            switch($k) {
-                case 'content':
-                case 'item':
-                case 'items':
-                case 'pagination':
-                case 'shoppingCart':
-                case 'template':
-                case 'website':
-                case 'websiteSettings':
+            // Expect value to be on root:
+            if (array_key_exists($k, $result)) {
                     $result[$k] = $v;
-                    break;
-                default:
+            } else {
+                // Ex: _type: blogpost, _collection: blog
                     if ($data['_type']==='item') {
                         $result['item'][$k] = $v;
-
-                        break;
-                    }
-
+                } else {
+                    // _type: collection
+                    $result['item'][$k] = $v;
                     $result['collection'][$k] = $v;
-                    break;
+                }
             }
         }
 

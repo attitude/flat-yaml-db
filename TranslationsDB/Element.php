@@ -71,7 +71,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
 
         // Get translation forms
         try {
-            $translation_forms = $this->getTranslationForms($key, $locale);
+            $translation_forms = $this->getTranslationForms($key, $locale, $one);
         } catch (HTTPException $e) {
             // Not in dictionary, fast die with defaults
             if ($count===1 && !empty($one)) {
@@ -157,27 +157,34 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
      * inserted.
      *
      */
-    public function getTranslationForms($key, $locale)
+    public function getTranslationForms($other, $locale, $one='')
     {
         // Record is not even in the dictionary
-        if (!isset($this->data[$key])) {
-            $this->data[$key] = array();
+        if (!array_key_exists($other, $this->data)) {
+            if (!empty($one) && $other!==$one) {
+                $this->data[$other] = array(
+                    1 => $one,
+                    'other' => $other
+                );
+            } else {
+                $this->data[$other] = array();
+            }
             $this->dirty = true;
 
             throw new HTTPException(404);
         }
 
-        // There is a record, but empty
-        if (empty($this->data[$key])) {
+        // There is a record, but empty (same, could be created before)
+        if (empty($this->data[$other])) {
             throw new HTTPException(404);
         }
 
         // Found specific locale
-        if (isset($this->data[$key][$locale])) {
-            return $this->data[$key][$locale];
+        if (isset($this->data[$other][$locale])) {
+            return $this->data[$other][$locale];
         }
 
         // Maybe there is comething to dig out later
-        return $this->data[$key];
+        return $this->data[$other];
     }
 }

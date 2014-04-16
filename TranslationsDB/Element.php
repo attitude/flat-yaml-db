@@ -2,6 +2,7 @@
 
 namespace attitude\FlatYAMLDB;
 
+use \Symfony\Component\Yaml\Yaml;
 use \attitude\FlatYAMLDB_Element;
 
 use \attitude\Elements\HTTPException;
@@ -186,5 +187,22 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
 
         // Maybe there is comething to dig out later
         return $this->data[$other];
+    }
+
+    public function updateDictionary()
+    {
+        if (!$this->dirty) {
+            return $this;
+        }
+        
+        try {
+            $str = Yaml::dump($this->data,4, 4, true);
+        } catch(\Exception $e) {
+            trigger_error($e->getMessage(), E_USER_WARNING);
+        }
+
+        if (! file_put_contents($this->filepath, $str)) {
+            trigger_error('Failed to write translations to '.basename($this->filepath), E_USER_WARNING);
+        }
     }
 }

@@ -219,11 +219,11 @@ class ContentDB_Element extends FlatYAMLDB_Element
         foreach ($data as $k => &$v) {
             // Expect value to be on root:
             if (array_key_exists($k, $result)) {
-                    $result[$k] = $v;
+                $result[$k] = $v;
             } else {
                 // Ex: _type: blogpost, _collection: blog
-                    if ($data['_type']==='item') {
-                        $result['item'][$k] = $v;
+                if ($data['_type']==='item') {
+                    $result['item'][$k] = $v;
                 } else {
                     // _type: collection
                     $result['item'][$k] = $v;

@@ -194,7 +194,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
         if (!$this->dirty) {
             return $this;
         }
-        
+
         try {
             $str = Yaml::dump($this->data,4, 4, true);
         } catch(\Exception $e) {

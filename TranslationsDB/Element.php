@@ -146,7 +146,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
      * @return string   Default value.
      * @private
      */
-    public function defaultSelect($n)
+    public function defaultSelect($n=0)
     {
         return self::OTHER;
     }

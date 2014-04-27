@@ -116,7 +116,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
         // AngularJS): FRACTION
         //
         $select_hook = 'global::language.pluralRules.'.strtolower(substr($locale,0,2)).'Select';
-        $select      = DependencyContainer::get($select_hook, self::defaultSelect())->__invoke($count);
+        $select      = DependencyContainer::get($select_hook, function($count) { return self::defaultSelect(); })->__invoke($count);
 
         // var_dump($key, $locale, $translation_forms, $select);
 

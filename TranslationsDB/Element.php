@@ -90,7 +90,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
         // 1, 2, 3... is defined, just use it.
         if (is_string($translation_forms)) {
             return $translation_forms;
-        } elseif (($count || $count===0) && array_key_exists($count, $translation_forms)) {
+        } elseif (($count || $count===0) && (is_string($count) || is_int($count)) && array_key_exists($count, $translation_forms)) {
             return $translation_forms[$count];
         }
 

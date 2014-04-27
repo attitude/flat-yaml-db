@@ -22,7 +22,9 @@ class FlatYAMLDB_Element
         }
 
         $this->filepath       = $filepath;
-        $this->cache_filepath = $filepath.DependencyContainer::get('yamldb::cacheAdd', '.json');
+
+        // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
+        $this->cache_filepath = dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
 
         foreach ($index_keys as $index_key) {
             if (is_string($index_key) && strlen(trim($index_key)) > 0) {

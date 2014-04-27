@@ -170,7 +170,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
             } else {
                 $this->data[$other] = array();
             }
-            $this->dirty = true;
+            $this->is_dirty = true;
 
             throw new HTTPException(404);
         }
@@ -191,7 +191,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
 
     public function updateDictionary()
     {
-        if (!$this->dirty) {
+        if (!$this->is_dirty) {
             return $this;
         }
 

@@ -116,9 +116,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
         // AngularJS): FRACTION
         //
         $select_hook = 'global::language.pluralRules.'.strtolower(substr($locale,0,2)).'Select';
-        $select      = DependencyContainer::get($select_hook, function($count) { return self::defaultSelect(); })->__invoke($count);
-
-        // var_dump($key, $locale, $translation_forms, $select);
+        $select      = DependencyContainer::get($select_hook, function($count) { return self::defaultSelect($count); })->__invoke($count);
 
         // An expected form exists. Done.
         if (isset($translation_forms[$select])) {
@@ -148,6 +146,10 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
      */
     public function defaultSelect($n=0)
     {
+        if (is_float($n)) {
+            return self::FRACTION;
+        }
+
         return self::OTHER;
     }
 
@@ -183,6 +185,14 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
         // Found specific locale
         if (isset($this->data[$other][$locale])) {
             return $this->data[$other][$locale];
+        } else {
+            if (!empty($one) && $other!==$one) {
+                return array(
+                    1 => $one,
+                    'other' => $other
+                );
+            }
+            return $other;
         }
 
         // Maybe there is comething to dig out later

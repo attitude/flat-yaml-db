@@ -14,7 +14,7 @@
     ],
     "require": {
         "symfony/yaml": "dev-master",
-        "attitude/Elements": "0.1.*",
+        "attitude/Elements": "~0.2.0",
         "attitude/Functions/is_assoc_array":  "dev-master"
     }
 }

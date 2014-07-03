@@ -229,7 +229,7 @@ class FlatYAMLDB_Element
         file_put_contents($this->cache_filepath, json_encode(array(
             'indexes' => $this->indexes,
             'data'    => $this->data
-        ), JSON_PRETTY_PRINT));
+        )));
 
         return $this;
     }

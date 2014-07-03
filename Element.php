@@ -39,8 +39,13 @@ class FlatYAMLDB_Element
         } else {
             header('X-Using-DB-Cache: true');
 
-            $this->loadCache();
+            try {
+                $this->loadCache();
+            } catch (HTTPException $e) {
+                header('X-Using-DB-Cache: false');
+            }
         }
+
 
         // Something might get wrong last time
         if (empty($this->data)) {
@@ -210,7 +215,7 @@ class FlatYAMLDB_Element
         $cache = json_decode(file_get_contents($this->cache_filepath), true);
 
         if (!isset($cache['indexes']) || !isset($cache['data'])) {
-            throw new Exception(500, 'Cache is damadged');
+            throw new HTTPException(500, 'Cache is damadged');
         }
 
         $this->indexes = $cache['indexes'];

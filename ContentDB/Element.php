@@ -125,8 +125,19 @@ class ContentDB_Element extends FlatYAMLDB_Element
         throw new HTTPException(404, 'Failed to expand link().');
     }
 
+    /**
+     * Parses arguments and returns result of query
+     *
+     * Use $$meta to return metadata, otherwise nothing starting with '_' such
+     * as `_id` or `_type` will be returned.
+     *
+     * @param array $args Array of query arguments
+     * @return mixed
+     *
+     */
     public function expanderQuery($args)
     {
+        // $this->query() expects array of queries
         if (is_assoc_array($args)) {
             $args = array($args);
         }
@@ -135,7 +146,15 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         try {
             foreach($args as $subargs) {
-                $subresults = $this->query($subargs);
+                $meta = false;
+
+                if (array_key_exists('$$meta', $subargs)) {
+                    $meta = !! $subargs['$$meta'];
+
+                    unset($subargs['$$meta']);
+                }
+
+                $subresults = $this->query($subargs, $meta);
                 $results = array_merge($results, $subresults);
             }
         } catch (HTTPException $e) {

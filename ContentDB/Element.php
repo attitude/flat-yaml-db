@@ -213,9 +213,9 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 '_limit' => 1
             ), true);
         } catch (HTTPException $e) {
-            // But maybe we're about to displate one of the items
+            // But maybe we're about to display one of the items
             $data = $this->query(array(
-                '_type' => "item",
+                // '_type' => "item",
                 'route' => $uri,
                 '_limit' => 1
             ), true);

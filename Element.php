@@ -136,6 +136,77 @@ class FlatYAMLDB_Element
         return array();
     }
 
+    private function mergeRoutes($parent, $self) {
+        // Do nothing when not needed
+        if (is_string($self) && !strstr($self, './')) {
+            return $self;
+        }
+        if (is_array($self)) {
+            $found = false;
+            foreach ($self as &$v) {
+                if (strstr($v, './')) {
+                    $found = true;
+                }
+            }
+            if (!$found) {
+                return $self;
+            }
+        }
+
+
+        if (is_array($parent) && is_string($self)) {
+            foreach ($parent as $k => &$v) {
+                if (strstr($self, '../')) {
+                    $v = str_replace('../', dirname(rtrim($v, '/')).'/', $self);
+                } elseif (strstr($self, './')) {
+                    $v = str_replace('./', rtrim($v, '/').'/', $self);
+                }
+            }
+
+            return $parent;
+        }
+
+        if (is_string($parent) && is_array($self)) {
+            foreach ($self as $k => &$v) {
+                if (strstr($self, '../')) {
+                    $v = str_replace('../', dirname(rtrim($parent, '/')).'/', $v);
+                } elseif (strstr($self, './')) {
+                    $v = str_replace('./', rtrim($parent, '/').'/', $v);
+                }
+            }
+
+            return $self;
+        }
+
+        if (is_array($parent) && is_array($self)) {
+            foreach ($parent as $k => &$v) {
+                if (!array_key_exists($k, $self)) {
+                    unset($parent[$k]);
+
+                    continue;
+                }
+
+                if (strstr($self[$k], '../')) {
+                    $v = str_replace('../', dirname(rtrim($v, '/')).'/', $self[$k]);
+                } elseif (strstr($self[$k], './')) {
+                    $v = str_replace('./', rtrim($v, '/').'/', $self[$k]);
+                }
+            }
+
+            return $parent;
+        }
+
+        if (is_string($parent) && is_string($self)) {
+            if (strstr($self, '../')) {
+                return str_replace('../', dirname(rtrim($parent, '/')).'/', $self);
+            } elseif (strstr($self, './')) {
+                return str_replace('./', rtrim($parent, '/').'/', $self);
+            }
+        }
+
+        throw new HTTPException(500, 'Expecting string or array of routes to merge.');
+    }
+
     public function query($query, $keep_metadata = false)
     {
         $limit  = (isset($query['_limit']))  ? $query['_limit']  : 0;
@@ -177,29 +248,78 @@ class FlatYAMLDB_Element
 
         foreach (array($intersection) as $ids) {
             foreach ($ids as $id) {
-                $result =& $this->data[$id];
+                $result = $this->data[$id];
+
+                // Resolve relative paths
+                $replacementNeeded = false;
+
+                if (isset($result['_collection']) && isset($result['route'])) {
+                    if (is_array($result['route'])) {
+                        foreach ($result['route'] as &$resultRoute) {
+                            if (!strstr('^@starts@^'.$resultRoute, '^@starts@^'.'/')) {
+                                $replacementNeeded = true;
+                            }
+                        }
+                    } elseif (is_string($result['route'])) {
+                        if (!strstr('^@starts@^'.$result['route'], '^@starts@^'.'/')) {
+                            $replacementNeeded = true;
+                        }
+                    }
+                }
+
+                if ($replacementNeeded) {
+                    try {
+                        $parent = $this->query(array('_type' => 'collection', '_id' => $result['_collection']), $keep_metadata);
+
+                        if ($parent['route']) {
+                            $result['route'] = $this->mergeRoutes($parent['route'], $result['route']);
+                        }
+                    } catch (HTTPException $e) {
+                        trigger_error('Failed to find parent collection with `_id` '.$result['_collection']);
+                    }
+                }
+
+                // Dynamic data
+                foreach ($result as $k => &$v) {
+                    if (is_string($v)) {
+                        if (preg_match('/\{\{([^\}]+?)\}\}/', $v, $matches)) {
+                            if (array_key_exists($matches[1], $result)) {
+                                $v = str_replace($matches[0], $result[$matches[1]], $v);
+                            }
+                        }
+                    } elseif (is_array($v)) {
+                        foreach ($v as &$vv) {
+                            if (is_string($vv)) {
+                                if (preg_match('/\{\{([^\}]+?)\}\}/', $vv, $matches)) {
+                                    if (array_key_exists($matches[1], $result)) {
+                                        $vv = str_replace($matches[0], $result[$matches[1]], $vv);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if (!isset($result['link']) && isset($result['route']) && isset($result['_type']) && isset($result['_id'])) {
                     $result['link'] = array('link()' => array('_type' => $result['_type'], '_id' => $result['_id']));
                 }
 
                 if ($keep_metadata) {
-                    $results[] = $this->data[$id];
+                    $results[] = $result;
                 } else {
-                    $data = $this->data[$id];
-
-                    foreach ($data as $k => &$v) {
+                    foreach ($result as $k => &$v) {
                         if ($k[0]==='_') {
-                            unset($data[$k]);
+                            unset($result[$k]);
                         }
                     }
 
-                    $results[] = $data;
+                    $results[] = $result;
                 }
             }
         }
 
         if (empty($results)) {
+            trigger_error('404: '.json_encode($query));
             throw new HTTPException(404, 'Your query returned zero results');
         }
 

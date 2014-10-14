@@ -282,7 +282,15 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         // Try to find sub-items
         if (!isset($result['items'])) {
-            $result['items'] = array('query()' => array('_collection' => $data['_id']));
+            try {
+                $result['items'] = $this->query(array('_collection' => $data['_id']));
+
+                foreach ($result['items'] as &$item) {
+                    $item['link'] = $this->linkToData($item);
+                }
+            } catch (HTTPException $e) {
+                /* No items */
+            }
         }
 
         if (!isset($result['collection']['breadcrumbs'])) {

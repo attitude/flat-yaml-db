@@ -260,24 +260,26 @@ class ContentDB_Element extends FlatYAMLDB_Element
             }
         }
 
-        // Has parent collection defined
-        if ($result['_type'] === 'homepage') {
-            $result['collection'] = $result['item'];
-        } elseif ($result['_type'] !== 'collection') {
-            // Look up higher level collection
-            if (isset($result['item']['_collection'])) {
-                try {
-                    $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
-                } catch (HTTPException $e) {
-                    throw new HTTPException(404, 'Item has collection defined but is missing.');
+        if (isset($result['_type'])) {
+            // Has parent collection defined
+            if ($result['_type'] === 'homepage') {
+                $result['collection'] = $result['item'];
+            } elseif ($result['_type'] !== 'collection') {
+                // Look up higher level collection
+                if (isset($result['item']['_collection'])) {
+                    try {
+                        $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
+                    } catch (HTTPException $e) {
+                        throw new HTTPException(404, 'Item has collection defined but is missing.');
+                    }
+                } else {
+                    // Set empty
+                    $result['collection'] = $result['website'];
                 }
             } else {
-                // Set empty
-                $result['collection'] = $result['website'];
+                // Collection is the Item
+                $result['collection'] = $result['item'];
             }
-        } else {
-            // Collection is the Item
-            $result['collection'] = $result['item'];
         }
 
         // Try to find sub-items

@@ -223,15 +223,15 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         $result = array(
             'website'         => null,
-            'websiteSettings' => null,
-            'item'            => $data,
             'collection'      => null,
+            'item'            => $data,
             'items'           => null,
-            'template'        => null,
             'shoppingCart'    => null,
             'showCart'        => null,
+            'template'        => null,
+            'pagination'      => null,
+            'websiteSettings' => null,
             'calendarView'    => null,
-            'pagination'      => null
         );
 
         // Walk item data
@@ -251,20 +251,32 @@ class ContentDB_Element extends FlatYAMLDB_Element
             }
         }
 
+        // Has parent collection defined
+        if ($result['_type'] !== 'collection') {
+            // Look up higher level collection
+            if (isset($result['item']['_collection'])) {
+                try {
+                    $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
+                } catch (HTTPException $e) {
+                    throw new HTTPException(404, 'Item has collection defined but is missing.');
+                }
+            } else {
+                // Set empty
+                $result['collection'] = [];
+            }
+        } else {
+            // Collection is the Item
+            $result['collection'] = $result['item'];
+        }
+
+        // Try to find sub-items
         if (!isset($result['items'])) {
             $result['items'] = array('query()' => array('_collection' => $data['_id']));
         }
 
+        // Fill the website info with the highest level collection (homepage)
         if (!isset($result['website'])) {
             $result['website'] = array('query()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
-        }
-
-        if (empty($result['collection']) && isset($result['item']['_collection'])) {
-            try {
-                $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
-            } catch(HTTPException $e) {
-                throw new HTTPException(404, 'Item has no collection defined');
-            }
         }
 
         if (!isset($result['collection']['breadcrumbs'])) {

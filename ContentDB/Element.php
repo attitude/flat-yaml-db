@@ -251,8 +251,19 @@ class ContentDB_Element extends FlatYAMLDB_Element
             }
         }
 
+        // Fill the website info with the highest level collection (homepage)
+        if (!isset($result['website'])) {
+            try {
+                $result['website'] = $this->query(array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+            } catch (HTTPException $e) {
+                throw new HTTPException(500, 'Homepage is missing. There is no root object.');
+            }
+        }
+
         // Has parent collection defined
-        if ($result['_type'] !== 'collection') {
+        if ($result['_type'] === 'homepage') {
+            $result['collection'] = $result['item'];
+        } elseif ($result['_type'] !== 'collection') {
             // Look up higher level collection
             if (isset($result['item']['_collection'])) {
                 try {
@@ -262,7 +273,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 }
             } else {
                 // Set empty
-                $result['collection'] = [];
+                $result['collection'] = $result['website'];
             }
         } else {
             // Collection is the Item
@@ -274,17 +285,18 @@ class ContentDB_Element extends FlatYAMLDB_Element
             $result['items'] = array('query()' => array('_collection' => $data['_id']));
         }
 
-        // Fill the website info with the highest level collection (homepage)
-        if (!isset($result['website'])) {
-            $result['website'] = array('query()' => array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
-        }
-
         if (!isset($result['collection']['breadcrumbs'])) {
-            if ($data['_type']==='item') {
+            if ($result['item']['_type'] === 'collection') {
                 $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
             } else {
-                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['collection']['_type'], '_id' => $result['collection']['_id']));
+                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
             }
+        }
+
+        $result['website']['title'] = array();
+
+        foreach ( array_reverse($result['collection']['breadcrumbs']) as &$breadCrumb) {
+            $result['website']['title'][] = $breadCrumb['title'];
         }
 
         return $result;

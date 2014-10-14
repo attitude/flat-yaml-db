@@ -46,7 +46,6 @@ class FlatYAMLDB_Element
             }
         }
 
-
         // Something might get wrong last time
         if (empty($this->data)) {
             header('X-Using-DB-Cache: false');
@@ -58,16 +57,17 @@ class FlatYAMLDB_Element
 
     protected function loadYAML()
     {
-        $db = explode("\n...", trim(file_get_contents($this->filepath)));
+        $db = preg_split("/^[ \t]*...[ \t]*\n/m", trim(file_get_contents($this->filepath)));
 
         foreach ($db as $document) {
-            $document = trim($document);
-
             if (strlen($document)===0) {
                 continue;
             }
 
-            $document = substr($document, 0, 3) === '---' ? $document."\n..." : "---\n".$document."\n...";
+            $padding = strlen($document) - strlen(ltrim($document));
+            $document = trim(preg_replace('/^.{'.$padding.'}/m', '', $document));
+
+            $document = substr($document, -3) === '...' ? "---\n".$document : "---\n".$document."\n...";
 
             try {
                 $this->addData(Yaml::parse($document));

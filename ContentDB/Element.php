@@ -285,7 +285,21 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // Try to find sub-items
         if (!isset($result['items'])) {
             try {
-                $result['items'] = $this->query(array('_collection' => $data['_id']));
+                $items = $this->query(array('_collection' => $data['_id']), true);
+
+                foreach ($items as &$item) {
+                    if (isset($item['_type'])) {
+                        $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $item['_type']))));
+
+                        if (!array_key_exists($camelCasePlural, $result)) {
+                            $result[$camelCasePlural] = array();
+                        }
+
+                        $result[$camelCasePlural][] = $item;
+                    } else {
+                        trigger_error('Missing `_type` for object '.json_encode($item));
+                    }
+                }
 
                 foreach ($result['items'] as &$item) {
                     $item['link'] = $this->linkToData($item);
@@ -310,6 +324,64 @@ class ContentDB_Element extends FlatYAMLDB_Element
         }
 
         return $result;
+    }
+
+    /**
+    * Pluralizes English nouns.
+    *
+    * Source: http://www.akelos.com
+    *
+    * @access public
+    * @static
+    * @param  string $word English noun to pluralize
+    * @return string       Plural noun
+    */
+    private function pluralize($word)
+    {
+        $plural = array(
+            '/(quiz)$/i' => '1zes',
+            '/^(ox)$/i' => '1en',
+            '/([m|l])ouse$/i' => '1ice',
+            '/(matr|vert|ind)ix|ex$/i' => '1ices',
+            '/(x|ch|ss|sh)$/i' => '1es',
+            '/([^aeiouy]|qu)ies$/i' => '1y',
+            '/([^aeiouy]|qu)y$/i' => '1ies',
+            '/(hive)$/i' => '1s',
+            '/(?:([^f])fe|([lr])f)$/i' => '12ves',
+            '/sis$/i' => 'ses',
+            '/([ti])um$/i' => '1a',
+            '/(buffal|tomat)o$/i' => '1oes',
+            '/(bu)s$/i' => '1ses',
+            '/(alias|status)/i'=> '1es',
+            '/(octop|vir)us$/i'=> '1i',
+            '/(ax|test)is$/i'=> '1es',
+            '/s$/i'=> 's',
+            '/$/'=> 's'
+        );
+
+        $uncountable = array('equipment', 'information', 'rice', 'money', 'species', 'series', 'fish', 'sheep');
+        $irregular = array('person' => 'people', 'man' => 'men', 'child' => 'children', 'sex' => 'sexes', 'move' => 'moves');
+        $lowercased_word = strtolower($word);
+
+        foreach ($uncountable as $_uncountable){
+            if(substr($lowercased_word,(-1*strlen($_uncountable))) == $_uncountable){
+                return $word;
+            }
+        }
+
+        foreach ($irregular as $_plural=> $_singular){
+            if (preg_match('/('.$_plural.')$/i', $word, $arr)) {
+                return preg_replace('/('.$_plural.')$/i', substr($arr[0],0,1).substr($_singular,1), $word);
+            }
+        }
+
+        foreach ($plural as $rule => $replacement) {
+            if (preg_match($rule, $word)) {
+                return preg_replace($rule, $replacement, $word);
+            }
+        }
+
+        return false;
     }
 
     public function generateBreadcrumbs($args, $children = false, $levels = 0)

@@ -202,6 +202,53 @@ class ContentDB_Element extends FlatYAMLDB_Element
         throw new HTTPException(404, 'Failed to expand href().');
     }
 
+    /**
+     * Looks-up the children and appends them to the item
+     *
+     * @param  array $item The database item
+     * @return array       Modified item
+     *
+     */
+    private function queryChildren($item) {
+        if (!isset($item['_id'])) {
+            return $item;
+        }
+
+        // What if I specifically prepared the children object using query() expander
+        $toGenerate = array();
+
+        try {
+            $children = $this->query(array('_collection' => $item['_id']), true);
+
+            foreach ($children as &$child) {
+                if (isset($child['_type'])) {
+                    $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $child['_type']))));
+
+                    // Create the key and remember it should not be skipped later
+                    if (!array_key_exists($camelCasePlural, $item)) {
+                        $item[$camelCasePlural] = array();
+                        $toGenerate[] = $camelCasePlural;
+                    }
+
+                    if (in_array($camelCasePlural, $toGenerate)) {
+                        // Remove metadata
+                        foreach ($child as $k => &$v) {
+                            if ($k[0]==='_') {
+                                unset($child[$k]);
+                            }
+                        }
+
+                        $item[$camelCasePlural][] = $child;
+                    }
+                } else {
+                    trigger_error('Missing `_type` for object '.json_encode($child));
+                }
+            }
+        } catch (HTTPException $e) {/* Silence */}
+
+        return $item;
+    }
+
     public function getCollection($uri = '/')
     {
         // In most cases we look for a collection: an archive or parent page,

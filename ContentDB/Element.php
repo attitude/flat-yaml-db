@@ -77,11 +77,15 @@ class ContentDB_Element extends FlatYAMLDB_Element
         $result['href'] = $this->hrefToItem($data);
 
         foreach ((array) $result['href'] as $url) {
-            if ($url===$_SERVER['REQUEST_URI']) {
+            if (rtrim($url, '/') === rtrim($_SERVER['REQUEST_URI'], '/')) {
                 $result['current'] = true;
 
                 break;
             }
+        }
+
+        if (isset($data['route']) && $data['route'] === '/') {
+            $result['home'] = true;
         }
 
         if (isset($data['title'])) {

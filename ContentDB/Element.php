@@ -297,13 +297,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // Find all children
         $data = $this->queryChildren($data);
 
-        // Clone data to result.item
-        if ($result['item'] === null) {
-            $result['item'] = $data;
-        }
-
         // We know _type...
-        if (isset($result['item']['_type'])) {
+        if (isset($data['_type'])) {
             // Type is collection (same as current item)
             if ($data['_type'] === 'collection') {
                 // Respect previous override
@@ -315,7 +310,11 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 if (isset($data['route']) && $data['route'] === '/') {
                     $result['website'] = $result['collection'];
                 }
-            } elseif (isset($data['item']['_collection'])) {
+            } elseif ($result['item'] === null) {
+                $result['item'] = $data;
+            }
+
+            if (isset($data['item']['_collection'])) {
                 // Let's find out parent collection...
                 try {
                     $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
@@ -324,6 +323,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
                     throw new HTTPException(404, 'Item has collection defined but is missing.');
                 }
             }
+        } elseif ($result['item'] === null) {
+            $result['item'] = $data;
         }
 
         // Fill the website info (homepage)

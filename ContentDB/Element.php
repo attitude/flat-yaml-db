@@ -314,7 +314,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 $result['item'] = $data;
             }
 
-            if (isset($data['item']['_collection'])) {
+            if (isset($result['item']['_collection'])) {
                 // Let's find out parent collection...
                 try {
                     $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
@@ -330,11 +330,13 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // Fill the website info (homepage)
         if (!isset($result['website'])) {
             try {
-                $result['website'] = $this->query(array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+                $result['website'] = $this->query(array('_limit' => 1, '_type' => 'collection', 'route' => '/'), true);
 
                 // Has any override within?
                 if (isset($result['website']['website'])) {
                     $result['website'] = $result['website']['website'];
+                } else {
+                    $result['website'] = $this->queryChildren($result['website']);
                 }
             } catch (HTTPException $e) {
                 throw new HTTPException(500, 'Homepage is missing. There is no root object.');
@@ -343,9 +345,9 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         if (!isset($result['collection']['breadcrumbs'])) {
             if ($result['item']['_type'] === 'collection') {
-                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
+                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $data['_type'], '_id' => $data['_id']));
             } else {
-                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $result['item']['_type'], '_id' => $result['item']['_id']));
+                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $data['_type'], '_id' => $data['_id']));
             }
         }
 

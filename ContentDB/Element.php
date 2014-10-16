@@ -270,7 +270,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         $result = array(
             'website'         => null,
             'collection'      => null,
-            'item'            => $data,
+            'item'            => null,
             'items'           => null,
             'shoppingCart'    => null,
             'showCart'        => null,
@@ -280,78 +280,59 @@ class ContentDB_Element extends FlatYAMLDB_Element
             'calendarView'    => null,
         );
 
-        // Walk item data
+        // Extract overrides from data to result
         foreach ($data as $k => &$v) {
-            // Expect value to be on root:
+            // Expected value is on root...
             if (array_key_exists($k, $result)) {
+                // ... move on root of the result.
                 $result[$k] = $v;
-            } else {
-                // Ex: _type: blogpost, _collection: blog
-                if ($data['_type']==='item') {
-                    $result['item'][$k] = $v;
-                } else {
-                    // _type: collection
-                    $result['item'][$k] = $v;
-                    $result['collection'][$k] = $v;
+                unset($data[$k]);
+            }
+        }
+
+        // Find all children
+        $data = $this->queryChildren($data);
+
+        // Clone data to result.item
+        if ($result['item'] === null) {
+            $result['item'] = $data;
+        }
+
+        // We know _type...
+        if (isset($result['item']['_type'])) {
+            // Type is collection (same as current item)
+            if ($data['_type'] === 'collection') {
+                // Respect previous override
+                if ($result['collection'] === null) {
+                    $result['collection'] = $data;
+                }
+
+                // Is homepage
+                if (isset($data['route']) && $data['route'] === '/') {
+                    $result['website'] = $result['collection'];
+                }
+            } elseif (isset($data['item']['_collection'])) {
+                // Let's find out parent collection...
+                try {
+                    $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
+                    $result['collection'] = $this->queryChildren($result['collection']);
+                } catch (HTTPException $e) {
+                    throw new HTTPException(404, 'Item has collection defined but is missing.');
                 }
             }
         }
 
-        // Fill the website info with the highest level collection (homepage)
+        // Fill the website info (homepage)
         if (!isset($result['website'])) {
             try {
                 $result['website'] = $this->query(array('_limit' => 1, '_type' => 'collection', 'route' => '/'));
+
+                // Has any override within?
+                if (isset($result['website']['website'])) {
+                    $result['website'] = $result['website']['website'];
+                }
             } catch (HTTPException $e) {
                 throw new HTTPException(500, 'Homepage is missing. There is no root object.');
-            }
-        }
-
-        if (isset($result['_type'])) {
-            // Has parent collection defined
-            if ($result['_type'] === 'homepage') {
-                $result['collection'] = $result['item'];
-            } elseif ($result['_type'] !== 'collection') {
-                // Look up higher level collection
-                if (isset($result['item']['_collection'])) {
-                    try {
-                        $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
-                    } catch (HTTPException $e) {
-                        throw new HTTPException(404, 'Item has collection defined but is missing.');
-                    }
-                } else {
-                    // Set empty
-                    $result['collection'] = $result['website'];
-                }
-            } else {
-                // Collection is the Item
-                $result['collection'] = $result['item'];
-            }
-        }
-
-        // Try to find sub-items
-        if (!isset($result['items'])) {
-            try {
-                $items = $this->query(array('_collection' => $data['_id']), true);
-
-                foreach ($items as &$item) {
-                    if (isset($item['_type'])) {
-                        $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $item['_type']))));
-
-                        if (!array_key_exists($camelCasePlural, $result)) {
-                            $result[$camelCasePlural] = array();
-                        }
-
-                        $result[$camelCasePlural][] = $item;
-                    } else {
-                        trigger_error('Missing `_type` for object '.json_encode($item));
-                    }
-                }
-
-                foreach ($result['items'] as &$item) {
-                    $item['link'] = $this->linkToData($item);
-                }
-            } catch (HTTPException $e) {
-                /* No items */
             }
         }
 

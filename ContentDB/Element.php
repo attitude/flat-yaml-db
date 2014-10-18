@@ -11,8 +11,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
 {
     protected function addData($data)
     {
-        if (isset($data['_id']) && isset($data['_type'])) {
-            $this->data[$data['_type'].'.'.$data['_id']] = $data;
+        if (isset($data['id']) && isset($data['type'])) {
+            $this->data[$data['type'].'.'.$data['id']] = $data;
         }
 
         return $this;
@@ -20,26 +20,34 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
     protected function createDBIndex()
     {
+        $index_keys = array();
+
+        // Allow to set internal/private keys and behave as defaults
+        foreach ((array) $this->index_keys as $k) {
+            $index_keys[] = $k;           // Always public
+            $index_keys[] = '_'.$k;       // Internal, maybe public (internal loops etc.)
+            $index_keys[] = '__'.$k.'__'; // Internal, never public
+        }
+
         foreach ($this->data as $document) {
-            if (!isset($document['_id']) || !isset($document['_type'])) {
+            $id   = @$document['id']   ? $document['id']   : false;
+            $type = @$document['type'] ? $document['type'] : false;
+
+            if (!$id || !$type) {
                 continue;
             }
 
-            foreach ((array) $this->index_keys as $index_key) {
-                if ($index_key==='_id') {
-                    continue;
-                }
-
+            foreach ((array) $index_keys as $index_key) {
                 if (isset($document[$index_key])) {
                     $data =& $document[$index_key];
                     if(is_array($data)) {
                         foreach ($data as &$subdata) {
                             if (! is_array($subdata)) {
-                                $this->addIndex($index_key, $subdata, $document['_type'].'.'.$document['_id']);
+                                $this->addIndex(trim($index_key, '_'), $subdata, $type.'.'.$id);
                             }
                         }
                     } else {
-                        $this->addIndex($index_key, $data, $document['_type'].'.'.$document['_id']);
+                        $this->addIndex(trim($index_key, '_'), $data, $type.'.'.$id);
                     }
                 }
             }
@@ -213,53 +221,64 @@ class ContentDB_Element extends FlatYAMLDB_Element
      * @return array       Modified item
      *
      */
-    private function queryChildren($item) {
-        if (!isset($item['_id'])) {
-            return $item;
+    private function queryChildren($item, $metadata = false) {
+        $id   = @$item['id']   ? $item['id']   : false;
+        $type = @$item['type'] ? $item['type'] : false;
+
+        if (!$id) {
+            return array();
         }
 
-        // What if I specifically prepared the children object using query() expander
-        $toGenerate = array();
+        $links = array();
 
         try {
-            $children = $this->query(array('_collection' => $item['_id']), true);
+            $children = $this->query(array('collection' => $id), true);
 
             foreach ($children as &$child) {
-                if (isset($child['_type'])) {
-                    $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $child['_type']))));
+                if ($child['type']) {
+                    $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $child['type']))));
 
                     // Create the key and remember it should not be skipped later
-                    if (!array_key_exists($camelCasePlural, $item)) {
-                        $item[$camelCasePlural] = array();
-                        $toGenerate[] = $camelCasePlural;
+                    if (!array_key_exists($camelCasePlural, $links)) {
+                        $links[$camelCasePlural] = array();
                     }
 
-                    if (in_array($camelCasePlural, $toGenerate)) {
+                    // Remove metadata
+                    if (!$metadata) {
                         // Remove metadata
                         foreach ($child as $k => &$v) {
                             if ($k[0]==='_') {
                                 unset($child[$k]);
                             }
                         }
-
-                        $item[$camelCasePlural][] = $child;
                     }
+
+                    $links[$camelCasePlural][] = $child;
                 } else {
                     trigger_error('Missing `_type` for object '.json_encode($child));
                 }
             }
         } catch (HTTPException $e) {/* Silence */}
 
-        return $item;
+        return $links;
     }
 
+    /**
+     * Returs current resource and it's linked data
+     *
+     * @see http://jsonapi.org/format/
+     *
+     * @param string $uri Route of resource
+     * @return array      Resource data
+     *
+     */
     public function getCollection($uri = '/')
     {
         // In most cases we look for a collection: an archive or parent page,
         // listing of related items
         try {
             $data = $this->query(array(
-                '_type' => "collection",
+                'type' => "collection",
                 'route' => $uri,
                 '_limit' => 1
             ), true);
@@ -271,91 +290,102 @@ class ContentDB_Element extends FlatYAMLDB_Element
             ), true);
         }
 
+        $id   = @$data['id']   ? $data['id']   : false;
+        $type = @$data['type'] ? $data['type'] : false;
+
         $result = array(
-            'website'         => null,
-            'collection'      => null,
-            'item'            => null,
-            'items'           => null,
-            'shoppingCart'    => null,
-            'showCart'        => null,
-            'template'        => null,
-            'pagination'      => null,
-            'websiteSettings' => null,
-            'calendarView'    => null,
+            // The primary resource(s) SHOULD be keyed either by their resource
+            // type or the generic key "data".
+            $type =>& $data,
+
+            // Meta-information about a resource, such as pagination.
+            'meta'  => array(
+                /* Example:
+                'website'         => null,
+                'shoppingCart'    => null,
+                'template'        => null,
+                'showCart'        => null,
+                'pagination'      => null,
+                'calendarView'    => null,
+                'websiteSettings' => null
+                */
+            ),
+
+            // A collection of resource objects, grouped by type, that are linked
+            // to the primary resource(s) and/or each other (i.e. "linked resource(s)")
+            'linked' => array(
+                /* Example:
+                'collections' => array(),
+                'products'    => array(),
+                'authors'     => array(),
+                'posts'       => array(),
+                'comments'    => array()
+                */
+            ),
+
+            // URL templates to be used for expanding resources' relationships URLs
+            // 'links' => array(
+            //     /* Example:
+            //     "posts.comments": "http://example.com/comments?posts={posts.id}"
+            //     */
+            // ),
         );
 
-        // Extract overrides from data to result
-        foreach ($data as $k => &$v) {
-            // Expected value is on root...
-            if (array_key_exists($k, $result)) {
-                // ... move on root of the result.
-                $result[$k] = $v;
-                unset($data[$k]);
-            }
-        }
+        // 1/ Fill the website info (homepage)
+        // 1a/ Current resource is homepage
+        if (isset($data['route']) && $data['route'] === '/') {
+            $website = $data ;
 
-        // Find all children
-        $data = $this->queryChildren($data);
-
-        // We know _type...
-        if (isset($data['_type'])) {
-            // Type is collection (same as current item)
-            if ($data['_type'] === 'collection') {
-                // Respect previous override
-                if ($result['collection'] === null) {
-                    $result['collection'] = $data;
-                }
-
-                // Is homepage
-                if (isset($data['route']) && $data['route'] === '/') {
-                    $result['website'] = $result['collection'];
-                }
-            } elseif ($result['item'] === null) {
-                $result['item'] = $data;
-            }
-
-            if (isset($result['item']['_collection'])) {
-                // Let's find out parent collection...
-                try {
-                    $result['collection'] = $this->query(array('_type' => 'collection', '_id' => $result['item']['_collection']), true);
-                    $result['collection'] = $this->queryChildren($result['collection']);
-                } catch (HTTPException $e) {
-                    throw new HTTPException(404, 'Item has collection defined but is missing.');
-                }
-            }
-        } elseif ($result['item'] === null) {
-            $result['item'] = $data;
-        }
-
-        // Fill the website info (homepage)
-        if (!isset($result['website'])) {
+            $result['linked']['collection'] = $data;
+        } else {
+            // 1b/ Find homepage
             try {
-                $result['website'] = $this->query(array('_limit' => 1, '_type' => 'collection', 'route' => '/'), true);
-
-                // Has any override within?
-                if (isset($result['website']['website'])) {
-                    $result['website'] = $result['website']['website'];
-                } else {
-                    $result['website'] = $this->queryChildren($result['website']);
-                }
+                $website = $this->query(array('_limit' => 1, 'type' => 'collection', 'route' => '/'), true);
             } catch (HTTPException $e) {
                 throw new HTTPException(500, 'Homepage is missing. There is no root object.');
             }
         }
 
-        if (!isset($result['collection']['breadcrumbs'])) {
-            if ($result['item']['_type'] === 'collection') {
-                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $data['_type'], '_id' => $data['_id']));
-            } else {
-                $result['collection']['breadcrumbs'] = $this->generateBreadcrumbs(array('_type' => $data['_type'], '_id' => $data['_id']));
+        // Check validity
+        if (!isset($website['id'])) {
+            throw new HTTPException(500, 'Homepage object is missing `_id`.');
+        }
+
+        // Find linked resources
+        $website['linked'] = $this->queryChildren($website);
+
+        // 2/ Find all linked resources
+        $result['linked'] = $this->queryChildren($data);
+
+        // Additiionally set website
+        $result['linked']['website'] =& $website;
+
+        // 3/ Let's find out parent collection...
+        if (isset($data['collection'])) {
+            try {
+                $result['linked']['collection'] = $this->query(array('type' => 'collection', 'id' => $data['collection']));
+                $result['linked']['collection']['linked'] = $this->queryChildren($data['collection']);
+            } catch (HTTPException $e) {
+                throw new HTTPException(404, 'Item has collection defined but is missing.');
             }
         }
 
-        $result['website']['title'] = array();
-
-        foreach ( array_reverse($result['collection']['breadcrumbs']) as &$breadCrumb) {
-            $result['website']['title'][] = $breadCrumb['title'];
+        // 4/ Add Breadcrumbs
+        if (!isset($result['collection']['breadcrumbs'])) {
+            $result['meta']['breadcrumbs'] = $this->generateBreadcrumbs(array('type' => $type, 'id' => $id));
         }
+
+        // 5/ Add Title
+        $result['meta']['title'] = array();
+
+        foreach ( array_reverse($result['meta']['breadcrumbs']) as &$breadCrumb) {
+            $result['meta']['title'][] = $breadCrumb['title'];
+        }
+
+        // 6/ Add languages available
+        try {
+            $result['meta']['languages'] = $this->query(array('type' => 'language', 'published' => true));
+        } catch (HTTPException $e) {/* Silence */}
 
         return $result;
     }
@@ -430,11 +460,11 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
             $breadcrumbs[] = $this->linkToData($item);
 
-            if (isset($item['_collection'])) {
-                $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('_type' => 'collection', '_id' => $item['_collection'])));
+            if (isset($item['collection'])) {
+                $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('type' => 'collection', 'id' => $item['collection'])));
             }
-        } catch (HTTPException $e) {
-        }
+        } catch (HTTPException $e) {/* Silence */}
+
         $traverse--;
 
         if ($traverse==0) {

@@ -21,7 +21,7 @@ class FlatYAMLDB_Element
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
         }
 
-        $this->filepath       = $filepath;
+        $this->filepath = $filepath;
 
         // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
         $this->cache_filepath = dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
@@ -83,7 +83,7 @@ class FlatYAMLDB_Element
             // Resolve relative paths
             $replacementNeeded = false;
 
-            if (isset($result['_collection']) && isset($result['route'])) {
+            if (isset($result['collection']) && isset($result['route'])) {
                 if (is_array($result['route'])) {
                     foreach ($result['route'] as &$resultRoute) {
                         if (!strstr('^@starts@^'.$resultRoute, '^@starts@^'.'/')) {
@@ -99,13 +99,13 @@ class FlatYAMLDB_Element
 
             if ($replacementNeeded) {
                 try {
-                    $parent = $this->query(array('_type' => 'collection', '_id' => $result['_collection']), true);
+                    $parent = $this->query(array('type' => 'collection', 'id' => $result['collection']), true);
 
                     if ($parent['route']) {
                         $result['route'] = $this->expandRelativeRoutes($parent['route'], $result['route']);
                     }
                 } catch (HTTPException $e) {
-                    trigger_error('Failed to find parent collection with `_id` '.$result['_collection']);
+                    trigger_error('Failed to find parent collection with `id` '.$result['collection']);
                 }
             }
 
@@ -150,18 +150,26 @@ class FlatYAMLDB_Element
 
     protected function createDBIndex()
     {
+        $index_keys = array();
+
+        foreach ((array) $this->index_keys as $k) {
+            $index_keys[] = $k;           // Always public
+            $index_keys[] = '_'.$k;       // Internal, maybe public (internal loops etc.)
+            $index_keys[] = '__'.$k.'__'; // Internal, never public
+        }
+
         foreach ($this->data as $array_index => $document) {
-            foreach ((array) $this->index_keys as $index_key) {
+            foreach ((array) $index_keys as $index_key) {
                 if (isset($document[$index_key])) {
                     $data =& $document[$index_key];
                     if(is_array($data)) {
                         foreach ($data as &$subdata) {
                             if (! is_array($subdata)) {
-                                $this->addIndex($index_key, $subdata, $array_index);
+                                $this->addIndex(trim($index_key, '_'), $subdata, $array_index);
                             }
                         }
                     } else {
-                        $this->addIndex($index_key, $data, $array_index);
+                        $this->addIndex(trim($index_key, '_'), $data, $array_index);
                     }
                 }
             }
@@ -184,10 +192,6 @@ class FlatYAMLDB_Element
 
     protected function searchIndex($index, $value)
     {
-        if ($index==='_id' && isset($this->data[$value])) {
-            return (array) $value;
-        }
-
         if (isset($this->indexes[$index][$value])) {
             return $this->indexes[$index][$value];
         }
@@ -273,12 +277,10 @@ class FlatYAMLDB_Element
 
         unset($query['_limit'], $query['_offset']);
 
-        if (isset($query['_id'])) {
-            if (!isset($query['_type'])) {
+        if (isset($query['id'])) {
+            if (!isset($query['type'])) {
                 throw new HTTPException(500, 'Querying by id requires passing type');
             }
-
-            $query['_id'] = $query['_type'].'.'.$query['_id'];
         }
 
         foreach($query as $search => $value) {
@@ -309,8 +311,8 @@ class FlatYAMLDB_Element
             foreach ($ids as $id) {
                 $result = $this->data[$id];
 
-                if (!isset($result['link']) && isset($result['route']) && isset($result['_type']) && isset($result['_id'])) {
-                    $result['link'] = array('link()' => array('_type' => $result['_type'], '_id' => $result['_id']));
+                if (!isset($result['link']) && isset($result['route']) && isset($result['type']) && isset($result['id'])) {
+                    $result['link'] = array('link()' => array('type' => $result['type'], 'id' => $result['id']));
                 }
 
                 if ($keep_metadata) {
@@ -332,7 +334,7 @@ class FlatYAMLDB_Element
             throw new HTTPException(404, 'Your query returned zero results');
         }
 
-        if (isset($query['_id']) || $limit===1) {
+        if (isset($query['id']) || $limit===1) {
             return $results[0];
         }
 

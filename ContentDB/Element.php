@@ -296,7 +296,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         $result = array(
             // The primary resource(s) SHOULD be keyed either by their resource
             // type or the generic key "data".
-            $type =>& $data,
+            'data' =>& $data,
 
             // Meta-information about a resource, such as pagination.
             'meta'  => array(
@@ -324,48 +324,33 @@ class ContentDB_Element extends FlatYAMLDB_Element
             ),
 
             // URL templates to be used for expanding resources' relationships URLs
-            // 'links' => array(
-            //     /* Example:
-            //     "posts.comments": "http://example.com/comments?posts={posts.id}"
-            //     */
-            // ),
+            'links' => array(
+                /* Example:
+                "posts.comments": "http://example.com/comments?posts={posts.id}"
+                */
+            ),
         );
 
         // 1/ Fill the website info (homepage)
         // 1a/ Current resource is homepage
-        if (isset($data['route']) && $data['route'] === '/') {
-            $website = $data ;
-
-            $result['linked']['collection'] = $data;
-        } else {
-            // 1b/ Find homepage
-            try {
-                $website = $this->query(array('_limit' => 1, 'type' => 'collection', 'route' => '/'), true);
-            } catch (HTTPException $e) {
-                throw new HTTPException(500, 'Homepage is missing. There is no root object.');
-            }
+        try {
+            $website = $this->query(array('_limit' => 1, 'type' => 'website'));
+        } catch (HTTPException $e) {
+            throw new HTTPException(500, 'There is no website object.');
         }
 
-        // Check validity
-        if (!isset($website['id'])) {
-            throw new HTTPException(500, 'Homepage object is missing `_id`.');
-        }
-
-        // Find linked resources
-        $website['linked'] = $this->queryChildren($website);
+        $result['meta']['website'] =& $website;
 
         // 2/ Find all linked resources
-        $result['linked'] = $this->queryChildren($data);
-
-        // Additiionally set website
-        $result['linked']['website'] =& $website;
+        $data['links'] = $this->queryChildren($data);
 
         // 3/ Let's find out parent collection...
         if (isset($data['collection'])) {
             try {
                 $result['linked']['collection'] = $this->query(array('type' => 'collection', 'id' => $data['collection']));
-                $result['linked']['collection']['linked'] = $this->queryChildren($data['collection']);
+                $result['linked']['collection']['links'] = $this->queryChildren($data['collection']);
             } catch (HTTPException $e) {
+                trigger_error('Item has collection defined but is missing: '.json_encode(array('type' => 'collection', 'id' => $data['collection'])));
                 throw new HTTPException(404, 'Item has collection defined but is missing.');
             }
         }
@@ -386,6 +371,19 @@ class ContentDB_Element extends FlatYAMLDB_Element
         try {
             $result['meta']['languages'] = $this->query(array('type' => 'language', 'published' => true));
         } catch (HTTPException $e) {/* Silence */}
+
+        // 7/ Add homepage as linked resource
+        try {
+            $homepage = $this->query(array('route' => '/', '_limit' => 1));
+
+            $result['linked']['homepage'] =& $homepage;
+
+            try {
+                $homepage['links'] = $this->queryChildren($homepage);
+            } catch(HTTPException $e) {/* Silence */}
+        } catch(HTTPException $e) {
+            throw HTTPException('There must be a homepage defined under `/` route.');
+        }
 
         return $result;
     }
@@ -458,10 +456,12 @@ class ContentDB_Element extends FlatYAMLDB_Element
         try {
             $item = $this->query($args, true);
 
-            $breadcrumbs[] = $this->linkToData($item);
+            if (isset($item['route'])) {
+                $breadcrumbs[] = $this->linkToData($item);
 
-            if (isset($item['collection'])) {
-                $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('type' => 'collection', 'id' => $item['collection'])));
+                if (isset($item['collection'])) {
+                    $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('type' => 'collection', 'id' => $item['collection'])));
+                }
             }
         } catch (HTTPException $e) {/* Silence */}
 

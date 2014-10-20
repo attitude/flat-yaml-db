@@ -83,6 +83,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         }
 
         $result['href'] = $this->hrefToItem($data);
+        $result['active'] = $result['current'] = $result['home'] = false;
 
         foreach ((array) $result['href'] as $url) {
             if (rtrim($url, '/') === rtrim($_SERVER['REQUEST_URI'], '/')) {
@@ -94,6 +95,15 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         if (isset($data['route']) && $data['route'] === '/') {
             $result['home'] = true;
+        } else {
+            // Homepage would be otherwise always active
+            foreach ((array) $result['href'] as $url) {
+                if (strstr(rtrim($_SERVER['REQUEST_URI'], '/'), rtrim($url, '/'))) {
+                    $result['active'] = true;
+
+                    break;
+                }
+            }
         }
 
         if (isset($data['title'])) {

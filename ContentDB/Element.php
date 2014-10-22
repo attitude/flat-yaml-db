@@ -70,6 +70,30 @@ class ContentDB_Element extends FlatYAMLDB_Element
         return $links;
     }
 
+    private function stripLanguageURI($uri)
+    {
+        $language = DependencyContainer::get('global::language');
+
+        return preg_replace("|^/{$language['code']}|", '', $uri);
+    }
+
+    public function linkHelperIsHome($uri)
+    {
+        return $this->stripLanguageURI($uri) === '/';
+    }
+
+    public function linkHelperIsActive($uri)
+    {
+        $uri = $this->stripLanguageURI($uri);
+
+        return !$this->linkHelperIsHome($uri) && strstr(rtrim($_SERVER['REQUEST_URI'], '/'), rtrim($uri, '/'));
+    }
+
+    public function linkHelperIsCurrent($uri)
+    {
+        return rtrim($this->stripLanguageURI($uri), '/') === rtrim($_SERVER['REQUEST_URI'], '/');
+    }
+
     private function linkToItem($data)
     {
         $result = array();
@@ -83,28 +107,6 @@ class ContentDB_Element extends FlatYAMLDB_Element
         }
 
         $result['href'] = $this->hrefToItem($data);
-        $result['active'] = $result['current'] = $result['home'] = false;
-
-        foreach ((array) $result['href'] as $url) {
-            if (rtrim($url, '/') === rtrim($_SERVER['REQUEST_URI'], '/')) {
-                $result['current'] = true;
-
-                break;
-            }
-        }
-
-        if (isset($data['route']) && $data['route'] === '/') {
-            $result['home'] = true;
-        } else {
-            // Homepage would be otherwise always active
-            foreach ((array) $result['href'] as $url) {
-                if (strstr(rtrim($_SERVER['REQUEST_URI'], '/'), rtrim($url, '/'))) {
-                    $result['active'] = true;
-
-                    break;
-                }
-            }
-        }
 
         if (isset($data['title'])) {
             $result['title'] = $data['title'];

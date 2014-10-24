@@ -356,6 +356,26 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // 2/ Find all linked resources
         $data['links'] = $this->queryChildren($data);
 
+        // Move data to keep flat structure
+        foreach ($data['links'] as $linkType =>& $linkData) {
+            $ids = array();
+
+            foreach ($linkData as $linked) {
+                if (!isset($linked['id'])) {
+                    throw new HTTPException(500, 'Linked item must have `id` defined.');
+                }
+
+                // Remember ids
+                $ids[] = $linked['id'];
+
+                // Move to `resource.linked`
+                $result['linked'][$linkType][] = $linked;
+            }
+
+            // Replace with IDs
+            $data['links'][$linkType] = $ids;
+        }
+
         // 3/ Let's find out parent collection...
         if (isset($data['collection'])) {
             try {
@@ -388,7 +408,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         try {
             $homepage = $this->query(array('route' => '/', '_limit' => 1));
 
-            $result['linked']['homepage'] =& $homepage;
+            $result['meta']['homepage'] =& $homepage;
 
             try {
                 $homepage['links'] = $this->queryChildren($homepage);

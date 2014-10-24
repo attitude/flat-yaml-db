@@ -86,12 +86,12 @@ class ContentDB_Element extends FlatYAMLDB_Element
     {
         $uri = $this->stripLanguageURI($uri);
 
-        return !$this->linkHelperIsHome($uri) && strstr(rtrim($_SERVER['REQUEST_URI'], '/'), rtrim($uri, '/'));
+        return !$this->linkHelperIsHome($uri) && strstr(rtrim($this->stripLanguageURI($_SERVER['REQUEST_URI']), '/'), rtrim($uri, '/'));
     }
 
     public function linkHelperIsCurrent($uri)
     {
-        return rtrim($this->stripLanguageURI($uri), '/') === rtrim($_SERVER['REQUEST_URI'], '/');
+        return rtrim($this->stripLanguageURI($uri), '/') === rtrim($this->stripLanguageURI($_SERVER['REQUEST_URI']), '/');
     }
 
     private function linkToItem($data)

@@ -276,7 +276,7 @@ class FlatYAMLDB_Element
         $offset  = (isset($query['_offset']))  ? $query['_offset']  : 0;
         $orderby = (isset($query['_orderby'])) ? explode(' ', $query['_orderby']) : array('order', 'ASC');
 
-        if ($orderb && isset($orderby[1]) && !($orderby[1] === 'ASC' || $orderby[1] === 'DESC')) {
+        if ($orderby && isset($orderby[1]) && !($orderby[1] === 'ASC' || $orderby[1] === 'DESC')) {
             throw new HTTPException(500, 'Query Error: If specified, ordering method must be either `ASC` or `DESC`.');
         }
 

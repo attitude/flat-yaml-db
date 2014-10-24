@@ -272,10 +272,15 @@ class FlatYAMLDB_Element
 
     public function query($query, $keep_metadata = false)
     {
-        $limit  = (isset($query['_limit']))  ? $query['_limit']  : 0;
-        $offset = (isset($query['_offset'])) ? $query['_offset'] : 0;
+        $limit   = (isset($query['_limit']))   ? $query['_limit']   : 0;
+        $offset  = (isset($query['_offset']))  ? $query['_offset']  : 0;
+        $orderby = (isset($query['_orderby'])) ? explode(' ', $query['_orderby']) : array('order', 'ASC');
 
-        unset($query['_limit'], $query['_offset']);
+        if ($orderb && isset($orderby[1]) && !($orderby[1] === 'ASC' || $orderby[1] === 'DESC')) {
+            throw new HTTPException(500, 'Query Error: If specified, ordering method must be either `ASC` or `DESC`.');
+        }
+
+        unset($query['_limit'], $query['_offset'], $query['_orderby']);
 
         if (isset($query['id'])) {
             if (!isset($query['type'])) {
@@ -338,10 +343,60 @@ class FlatYAMLDB_Element
             return $results[0];
         }
 
+        self::orderby($results, $orderby);
+
+        return $results;
+    }
+
+    /**
+     * Modify results according to order parameters
+     *
+     * Method modifies parrameters passed by refference
+     *
+     * @param array $array
+     * @param array|bool $order
+     * @return bool Returs `false` when nothing changed
+     *
+     */
+    public static function orderby(&$array, &$orderby)
+    {
+        if (!is_array($array)) {
+            return false;
+        }
+
         // Try to reorder if the `order` attribute exists
-        uasort($results, function ($a, $b) {
-            $orderA = isset($a['order']) ? $a['order'] : 999999;
-            $orderB = isset($b['order']) ? $b['order'] : 999999;
+        uasort($array, function ($a, $b) use ($orderby) {
+            $attr = $orderby && isset($orderby[0]) && is_string($orderby[0]) && strlen(trim($orderby[0])) > 0 ? $orderby[0] : 'order';
+
+            $orderA = isset($a[$attr]) ? $a[$attr] : null;
+            $orderB = isset($b[$attr]) ? $b[$attr] : null;
+
+            // For now
+            if (is_array($orderA) || is_array($orderB)) {
+                return 0;
+            }
+
+            // Handle undefined values: numbers
+            if (is_numeric($orderA) && $orderB === null) {
+                $orderB = $orderA + 1;
+            }
+
+            // Handle undefined values: numbers
+            if (is_numeric($orderB) && $orderA === null) {
+                $orderA = $orderB + 1;
+            }
+
+            // Handle undefined values: string
+            if (is_string($orderA) && $orderB === null) {
+                $orderB = $orderA;
+                $orderB[0] = $orderB[0] + 1;
+            }
+
+            // Handle undefined values: string
+            if (is_string($orderB) && $orderA === null) {
+                $orderA = $orderB;
+                $orderA[0] = $orderA[0] + 1;
+            }
 
             if ($orderA == $orderB) {
                 return 0;
@@ -350,7 +405,11 @@ class FlatYAMLDB_Element
             return ($orderA < $orderB) ? -1 : 1;
         });
 
-        return $results;
+        if ($orderby && strtoupper($orderby[1]) === 'DESC') {
+            $array = array_reverse($array);
+        }
+
+        return true;
     }
 
     protected function loadCache()

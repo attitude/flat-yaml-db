@@ -338,6 +338,18 @@ class FlatYAMLDB_Element
             return $results[0];
         }
 
+        // Try to reorder if the `order` attribute exists
+        uasort($results, function ($a, $b) {
+            $orderA = isset($a['order']) ? $a['order'] : 999999;
+            $orderB = isset($b['order']) ? $b['order'] : 999999;
+
+            if ($orderA == $orderB) {
+                return 0;
+            }
+
+            return ($orderA < $orderB) ? -1 : 1;
+        });
+
         return $results;
     }
 

@@ -365,7 +365,7 @@ class FlatYAMLDB_Element
         }
 
         // Try to reorder if the `order` attribute exists
-        uasort($array, function ($a, $b) use ($orderby) {
+        usort($array, function ($a, $b) use ($orderby) {
             $attr = $orderby && isset($orderby[0]) && is_string($orderby[0]) && strlen(trim($orderby[0])) > 0 ? $orderby[0] : 'order';
 
             $orderA = isset($a[$attr]) ? $a[$attr] : null;

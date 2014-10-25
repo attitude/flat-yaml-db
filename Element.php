@@ -316,8 +316,12 @@ class FlatYAMLDB_Element
             foreach ($ids as $id) {
                 $result = $this->data[$id];
 
-                if (!isset($result['link']) && isset($result['route']) && isset($result['type']) && isset($result['id'])) {
-                    $result['link'] = array('link()' => array('type' => $result['type'], 'id' => $result['id']));
+                if (isset($result['route']) && method_exists($this, 'hrefToItem')) {
+                    $result['href'] = $this->hrefToItem($result);
+                }
+
+                if (isset($result['route']) && method_exists($this, 'linkToItem')) {
+                    $result['link'] = $this->linkToItem($result);
                 }
 
                 if ($keep_metadata) {

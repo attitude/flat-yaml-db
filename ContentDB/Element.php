@@ -117,20 +117,26 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
     public function hrefToItem($data)
     {
+        if (isset($data['href'])) {
+            return $data['href'];
+        }
+
+        $href = array();
+
         if (isset($data['route'])) {
             $language = DependencyContainer::get('global::language');
 
             if ($language) {
                 if (is_string($data['route'])) {
-                    $data['route'] = "/{$language['code']}".$data['route'];
+                    $href = "/{$language['code']}".$data['route'];
                 } else {
-                    foreach ($data['route'] as &$v) {
-                        $v = "/{$language['code']}".$v;
+                    foreach ($data['route'] as $k => &$v) {
+                        $href[$k] = "/{$language['code']}".$v;
                     }
                 }
             }
 
-            return $data['route'];
+            return $href;
         }
 
         return '#missingroute';

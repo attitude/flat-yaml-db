@@ -317,11 +317,15 @@ class FlatYAMLDB_Element
                 $result = $this->data[$id];
 
                 if (isset($result['route']) && method_exists($this, 'hrefToItem')) {
-                    $result['href'] = $this->hrefToItem($result);
+                    try {
+                        $result['href'] = $this->hrefToItem($result);
+                    } catch (HTTPException $e) { /* Silence exceptions */}
                 }
 
                 if (isset($result['route']) && method_exists($this, 'linkToItem')) {
-                    $result['link'] = $this->linkToItem($result);
+                    try {
+                        $result['link'] = $this->linkToItem($result);
+                    } catch (HTTPException $e) { /* Silence exceptions */}
                 }
 
                 if ($keep_metadata) {

@@ -94,7 +94,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         return rtrim($this->stripLanguageURI($uri), '/') === rtrim($this->stripLanguageURI($_SERVER['REQUEST_URI']), '/');
     }
 
-    private function linkToItem($data)
+    public function linkToItem($data)
     {
         $result = array();
 

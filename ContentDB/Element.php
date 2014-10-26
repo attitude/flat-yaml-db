@@ -240,8 +240,8 @@ class ContentDB_Element extends FlatYAMLDB_Element
      *
      */
     private function queryChildren($item, $metadata = false) {
-        $id   = @$item['id']   ? $item['id']   : false;
-        $type = @$item['type'] ? $item['type'] : false;
+        $id   = isset($item['id'])   ? $item['id']   : false;
+        $type = isset($item['type']) ? $item['type'] : false;
 
         if (!$id) {
             return array();

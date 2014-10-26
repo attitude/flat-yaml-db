@@ -344,6 +344,10 @@ class FlatYAMLDB_Element
             if (!isset($query['type'])) {
                 throw new HTTPException(500, 'Querying by id requires passing type');
             }
+
+            if ($query['type'] !== $this->pluralize($query['type'])) {
+                throw new HTTPException(500, 'Use plural form of type to keep your data <a href="http://jsonapi.org/format/#document-structure-compound-documents">JSON API compatible</a>');
+            }
         }
 
         foreach($query as $search => $value) {

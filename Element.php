@@ -99,7 +99,7 @@ class FlatYAMLDB_Element
 
             if ($replacementNeeded) {
                 try {
-                    $parent = $this->query(array('type' => 'collection', 'id' => $result['collection']), true);
+                    $parent = $this->query(array('type' => 'collections', 'id' => $result['collection']), true);
 
                     if ($parent['route']) {
                         $result['route'] = $this->expandRelativeRoutes($parent['route'], $result['route']);

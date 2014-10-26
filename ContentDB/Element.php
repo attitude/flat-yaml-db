@@ -428,9 +428,6 @@ class ContentDB_Element extends FlatYAMLDB_Element
         $traverse--;
 
         if ($traverse==0) {
-            $breadcrumbs[(sizeof($breadcrumbs)-1)]['home'] = true;
-            $breadcrumbs[0]['current'] = true;
-
             return array_reverse($breadcrumbs);
         }
 

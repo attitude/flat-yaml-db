@@ -254,11 +254,9 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
             foreach ($children as &$child) {
                 if ($child['type']) {
-                    $camelCasePlural = $this->pluralize(lcfirst(ucwords(str_replace('_', ' ', $child['type']))));
-
                     // Create the key and remember it should not be skipped later
-                    if (!array_key_exists($camelCasePlural, $links)) {
-                        $links[$camelCasePlural] = array();
+                    if (!array_key_exists($child['type'], $links)) {
+                        $links[$child['type']] = array();
                     }
 
                     // Remove metadata
@@ -271,7 +269,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
                         }
                     }
 
-                    $links[$camelCasePlural][] = $child;
+                    $links[$child['type']][] = $child;
                 } else {
                     trigger_error('Missing `_type` for object '.json_encode($child));
                 }
@@ -365,18 +363,18 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // 3/ Let's find out parent collection...
         if (isset($data['collection'])) {
             try {
-                $collection = $this->query(array('type' => 'collection', 'id' => $data['collection']));
-                $collection['links'] = $this->queryChildren($result['linked']['collection']);
+                $collection = $this->query(array('type' => 'collections', 'id' => $data['collection']));
+                $collection['links'] = $this->queryChildren($collection);
 
-                $data['links']['collections'][] =& $collection;
+                $data['links']['collection'] =& $collection;
             } catch (HTTPException $e) {
-                trigger_error('Item has collection defined but is missing: '.json_encode(array('type' => 'collection', 'id' => $data['collection'])));
+                trigger_error('Item has collection defined but is missing: '.json_encode(array('type' => 'collections', 'id' => $data['collection'])));
                 throw new HTTPException(404, 'Item has collection defined but is missing.');
             }
         }
 
         // 4/ Add Breadcrumbs
-        if (!isset($result['collection']['breadcrumbs'])) {
+        if (!isset($result['meta']['breadcrumbs'])) {
             $result['meta']['breadcrumbs'] = $this->generateBreadcrumbs(array('type' => $type, 'id' => $id));
         }
 
@@ -422,7 +420,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
                 $breadcrumbs[] = $this->linkToData($item);
 
                 if (isset($item['collection'])) {
-                    $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('type' => 'collection', 'id' => $item['collection'])));
+                    $breadcrumbs = array_merge($breadcrumbs, $this->generateBreadcrumbs(array('type' => 'collections', 'id' => $item['collection'])));
                 }
             }
         } catch (HTTPException $e) {/* Silence */}

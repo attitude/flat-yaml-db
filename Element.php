@@ -199,11 +199,18 @@ class FlatYAMLDB_Element
         return array();
     }
 
-    private function expandRelativeRoutes($parent, $self) {
+    private function expandRelativeRoutes($parent, $self)
+    {
+        // Fixes undesired pass by refference issue
+        $self = str_replace('', '', $self);
+        $parent = str_replace('', '', $parent);
+
         // Do nothing when not needed
         if (is_string($self) && !strstr($self, './')) {
             return $self;
         }
+
+        // Check if replacement is needed
         if (is_array($self)) {
             $found = false;
             foreach ($self as &$v) {
@@ -211,12 +218,14 @@ class FlatYAMLDB_Element
                     $found = true;
                 }
             }
+
+            // Break
             if (!$found) {
                 return $self;
             }
         }
 
-
+        // When parent route is an array of items, self is a string
         if (is_array($parent) && is_string($self)) {
             foreach ($parent as $k => &$v) {
                 if (strstr($self, '../')) {
@@ -229,6 +238,7 @@ class FlatYAMLDB_Element
             return $parent;
         }
 
+        // When parent route is a string of items, self is an array
         if (is_string($parent) && is_array($self)) {
             foreach ($self as $k => &$v) {
                 if (strstr($self, '../')) {
@@ -241,6 +251,7 @@ class FlatYAMLDB_Element
             return $self;
         }
 
+        // When parent route is an array of items, self is an array
         if (is_array($parent) && is_array($self)) {
             foreach ($parent as $k => &$v) {
                 if (!array_key_exists($k, $self)) {
@@ -259,6 +270,7 @@ class FlatYAMLDB_Element
             return $parent;
         }
 
+        // When parent route is string of items, self is a string
         if (is_string($parent) && is_string($self)) {
             if (strstr($self, '../')) {
                 return str_replace('../', dirname(rtrim($parent, '/')).'/', $self);

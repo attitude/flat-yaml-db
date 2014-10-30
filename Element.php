@@ -241,9 +241,9 @@ class FlatYAMLDB_Element
         // When parent route is a string of items, self is an array
         if (is_string($parent) && is_array($self)) {
             foreach ($self as $k => &$v) {
-                if (strstr($self, '../')) {
+                if (strstr($v, '../')) {
                     $v = str_replace('../', dirname(rtrim($parent, '/')).'/', $v);
-                } elseif (strstr($self, './')) {
+                } elseif (strstr($v, './')) {
                     $v = str_replace('./', rtrim($parent, '/').'/', $v);
                 }
             }

@@ -228,13 +228,21 @@ class FlatYAMLDB_Element
         return $this;
     }
 
-    protected function addIndex($index, $key, $value)
+    /**
+     * Indexes object's value under an index
+     *
+     * @param string $index        Attribute being indexed
+     * @param string $indexedValue Attribute value (value usualy being searched for)
+     * @param string $objectID     ID or any other object identificator
+     *
+     */
+    protected function addIndex($index, $indexedValue, $objectID)
     {
         if (!isset($this->indexes[$index])
-         || !isset($this->indexes[$index][$key])
-         || !in_array($value, $this->indexes[$index][$key])
+         || !isset($this->indexes[$index][$indexedValue])
+         || !in_array($objectID, $this->indexes[$index][$indexedValue])
         ) {
-            $this->indexes[$index][$key][] = $value;
+            $this->indexes[$index][$indexedValue][] = $objectID;
         }
 
         return $this;

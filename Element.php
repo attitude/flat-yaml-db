@@ -213,6 +213,11 @@ class FlatYAMLDB_Element
                 }
             }
 
+            // File/dir does not exist
+            if (empty($data)) {
+                continue;
+            }
+
             foreach ($data as &$document) {
                 if (!isset($document['id'])) {
                     if (count($data) > 1) {

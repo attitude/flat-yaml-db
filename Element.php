@@ -163,25 +163,37 @@ class FlatYAMLDB_Element
         return $data;
     }
 
-    protected function connectDatabase(array $YAMLfiles)
+    protected function connectDatabase(array $YAMLFiles)
     {
-        foreach ($YAMLfiles as $filePath) {
+        // Create indexes
+        if (empty($this->index_keys)) {
+            return $this->loadDB($YAMLFiles);
+        }
+
+        return $this->loadDB($YAMLFiles)->indexDB();
+    }
+
+    protected function loadDB($YAMLFiles, $parent = null)
+    {
+        foreach ($YAMLFiles as $filePath) {
             $data = null;
 
-            // Remember the index (getting size before adding idem wil result in
-            // proper array index)
+            // Remember the index
+            // Getting size before adding idem wil result in proper array index.
             $filePathIndex = sizeof($this->filePaths);
+
+            if ($parent === null && is_dir($filePath)) {
+                $files = rtrim($filePath, '/').'/*.yaml';
+                $this->loadDB($files, basename($filePath));
+
+                continue;
+            }
 
             // Add file source
             $this->filePaths[] = $filePath;
 
-            if ($this->nocache || $this->cacheNeedsReload($filePath)) {
-                try {
-                    $data = $this->loadYAMLFile($filePath);
-                } catch (HTTPException $e) {
-                    trigger_error('Failed to load '.basename($filePath).'.');
-                }
-            } else {
+            // Load the cache if no relad is needed
+            if ($this->cache && !$this->cacheNeedsReload($filePath)) {
                 try {
                     $data = $this->loadCache($filePath);
                 } catch (HTTPException $e) {
@@ -189,7 +201,7 @@ class FlatYAMLDB_Element
                 }
             }
 
-            // Something might get wrong last time, try once again
+            // Cache might be corrupt or cache is disabled
             if (empty($data)) {
                 try {
                     $data = $this->loadYAMLFile($filePath);
@@ -199,17 +211,24 @@ class FlatYAMLDB_Element
             }
 
             foreach ($data as &$document) {
+                if ($parent !== null) {
+                    if (!isset($document['id'])) {
+                        if (sizeof($data > 1)) {
+                            throw new HTTPException(500, 'Each embeded document in multi-document YAML must have id attribute defined.');
+                        }
+
+                        $document['id'] = basename($filePath);
+                    }
+
+                    if (!isset($document['type'])) {
+                        $document['type'] = $parent;
+                    }
+                }
+
                 // Store any documents in cache...
                 $this->addData($document);
             }
         }
-
-        // Create indexes
-        if (empty($this->index_keys)) {
-            return $this;
-        }
-
-        $this->indexDB();
 
         return $this;
     }
@@ -217,7 +236,7 @@ class FlatYAMLDB_Element
     protected function indexDB()
     {
         // Indexes
-        $indexFilePath = $this->rootPath.'/.indexes@'.$this->instanceType.'.json';
+        $indexFilePath = $this->rootPath.'/.'.$this->instanceType.'@$indexes.json';
 
         if (file_exists($indexFilePath)) {
             $this->indexFilePathMTime = filemtime($indexFilePath);
@@ -672,7 +691,7 @@ class FlatYAMLDB_Element
      */
     protected function cachefilePath($filePath)
     {
-        return dirname($filePath).'/.'.$this->instanceType.'@'.trim(basename($filePath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
+        return dirname($filePath).'/.'.$this->instanceType.'@'.trim(str_replace('.yaml', '', basename($filePath)), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
     }
 
     protected function loadCache($filePath)

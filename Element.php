@@ -11,12 +11,16 @@ class FlatYAMLDB_Element
     protected $filepath;
     protected $cache_filepath = null;
 
+    protected $now = 0;
+
     protected $data = array();
     protected $indexes = array();
     protected $index_keys = array();
 
     public function __construct($filepath, $index_keys = array(), $nocache = false)
     {
+        $this->now = time();
+
         if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
         }
@@ -55,11 +59,35 @@ class FlatYAMLDB_Element
         return $this;
     }
 
+    protected function fileStat($filepath)
+    {
+        $now = date('c', $this->now);
+
+        $dates = array(
+            'created' => $now,
+            'updated' => $now,
+        );
+
+        $stat = stat($filepath);
+
+        if (isset($stat['ctime'])) {
+            $dates['created'] = date('c', $stat['ctime']);
+        }
+
+        if (isset($stat['mtime'])) {
+            $dates['updated'] = date('c', $stat['mtime']);
+        }
+
+        return $dates;
+    }
+
     protected function loadYAMLFile($filepath)
     {
         if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
         }
+
+        $dates = $this->fileStat($filepath);
 
         $db = preg_split("/^[ \t]*...[ \t]*\n/m", trim(file_get_contents($filepath)));
 
@@ -74,7 +102,17 @@ class FlatYAMLDB_Element
             $document = substr($document, -3) === '...' ? "---\n".$document : "---\n".$document."\n...";
 
             try {
-                $this->addData(Yaml::parse($document));
+                $document = Yaml::parse($document);
+
+                if (!isset($document['created'])) {
+                    $document['created'] = $dates['created'];
+                }
+
+                if (!isset($document['updated'])) {
+                    $document['updated'] = $dates['updated'];
+                }
+
+                $this->addData($document);
             } catch (\Exception $e) {
                 trigger_error($e->getMessage()." in document:\n".$document);
             }

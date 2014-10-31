@@ -168,7 +168,8 @@ class FlatYAMLDB_Element
         foreach ($YAMLfiles as $filePath) {
             $data = null;
 
-            // Remember the index
+            // Remember the index (getting size before adding idem wil result in
+            // proper array index)
             $filePathIndex = sizeof($this->filePaths);
 
             // Add file source
@@ -203,16 +204,16 @@ class FlatYAMLDB_Element
             }
         }
 
+        // Create indexes
+        if (empty($this->index_keys)) {
+            return $this;
+        }
+
         // Indexes
         $indexFilePath = $this->rootPath.'/.indexes@'.$this->instanceType.'.json';
 
         if (file_exists($indexFilePath)) {
             $this->indexFilePathMTime = filemtime($indexFilePath);
-        }
-
-        // Create indexes
-        if (empty($this->index_keys)) {
-            return $this;
         }
 
         if ($this->nocache || $this->indexFilePathMTime < $this->lastMTime) {

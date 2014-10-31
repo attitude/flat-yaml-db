@@ -18,7 +18,7 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
     /**
      * @var string $instanceType Please provide custom namespace for your class
      */
-    protected $instanceType = 'translations';
+     protected $instanceType = 'translations';
 
     const ZERO     = 'zero';
     const ONE      = 'one';
@@ -224,8 +224,8 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
             trigger_error($e->getMessage(), E_USER_WARNING);
         }
 
-        if (! file_put_contents($this->filepath, $str)) {
-            trigger_error('Failed to write translations to '.basename($this->filepath), E_USER_WARNING);
+        if (! file_put_contents($this->filePath, $str)) {
+            trigger_error('Failed to write translations to '.basename($this->filePath), E_USER_WARNING);
         }
     }
 }

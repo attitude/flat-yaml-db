@@ -209,6 +209,13 @@ class FlatYAMLDB_Element
             return $this;
         }
 
+        $this->indexDB();
+
+        return $this;
+    }
+
+    protected function indexDB()
+    {
         // Indexes
         $indexFilePath = $this->rootPath.'/.indexes@'.$this->instanceType.'.json';
 

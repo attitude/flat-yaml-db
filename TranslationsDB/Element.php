@@ -33,6 +33,15 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
      */
     private $is_dirty = false;
 
+    public function __construct($filePaths, array $index_keys, $rootPath, $nocache = false)
+    {
+        if (is_array($filePaths) && sizeof($filePaths) > 0) {
+            throw new HTTPException(500, 'This translation class supports only one file as input');
+        }
+
+        return parent::__construct($filePaths, $index_keys, $rootPath, $nocache);
+    }
+
     protected function addData($data)
     {
         foreach ($data as $k => &$v) {
@@ -224,8 +233,8 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
             trigger_error($e->getMessage(), E_USER_WARNING);
         }
 
-        if (! file_put_contents($this->filePath, $str)) {
-            trigger_error('Failed to write translations to '.basename($this->filePath), E_USER_WARNING);
+        if (! file_put_contents($this->filePaths[0], $str)) {
+            trigger_error('Failed to write translations to '.basename($this->filePaths[0]), E_USER_WARNING);
         }
     }
 }

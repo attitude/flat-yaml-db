@@ -57,7 +57,7 @@ class FlatYAMLDB_Element
      */
     protected $cache;
 
-    public function __construct($filePath, array $index_keys, $rootPath, $nocache = false)
+    public function __construct($filePaths, array $index_keys, $rootPath, $nocache = false)
     {
         if (!is_string($rootPath) || strlen(trim($rootPath))===0 || !realpath($rootPath) || !is_dir($rootPath)) {
             throw new HTTPException(500, 'Path to YAML database root dir does not exit or value is invalid.');
@@ -76,20 +76,13 @@ class FlatYAMLDB_Element
             }
         }
 
-        if (!is_string($filePath) || strlen(trim($filePath))===0 || !realpath($filePath)) {
-            throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
-        }
-
-        // @TODO: replace with index
-        $this->filePath = $filePath;
-
         if ($nocache) {
             header('X-Using-DB-Cache: false');
         } else {
             header('X-Using-DB-Cache: true');
         }
 
-        $this->connectDatabase((array) $filePath);
+        $this->connectDatabase((array) $filePaths);
 
         return $this;
     }

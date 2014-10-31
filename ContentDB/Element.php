@@ -366,7 +366,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // 1/ Fill the website info (homepage)
         // 1a/ Current resource is homepage
         try {
-            $website = $this->query(array('_limit' => 1, 'type' => 'website'));
+            $website = $this->query(array('id' => 'website', 'type' => 'websites'));
         } catch (HTTPException $e) {
             throw new HTTPException(500, 'There is no website object.');
         }
@@ -403,7 +403,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
 
         // 6/ Add languages available
         try {
-            $result['meta']['languages'] = $this->query(array('type' => 'language', 'published' => true));
+            $result['meta']['languages'] = $this->query(array('type' => 'languages', 'published' => true));
         } catch (HTTPException $e) {/* Silence */}
 
         // 7/ Add homepage as linked resource

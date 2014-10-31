@@ -183,8 +183,11 @@ class FlatYAMLDB_Element
             $filePathIndex = sizeof($this->filePaths);
 
             if ($parent === null && is_dir($filePath)) {
-                $files = rtrim($filePath, '/').'/*.yaml';
-                $this->loadDB($files, basename($filePath));
+                $files = glob(rtrim($filePath, '/').'/*.yaml');
+
+                if ($files && !empty($files)) {
+                    $this->loadDB($files, basename($filePath));
+                }
 
                 continue;
             }
@@ -211,15 +214,15 @@ class FlatYAMLDB_Element
             }
 
             foreach ($data as &$document) {
-                if ($parent !== null) {
-                    if (!isset($document['id'])) {
-                        if (sizeof($data > 1)) {
-                            throw new HTTPException(500, 'Each embeded document in multi-document YAML must have id attribute defined.');
-                        }
-
-                        $document['id'] = basename($filePath);
+                if (!isset($document['id'])) {
+                    if (count($data) > 1) {
+                        throw new HTTPException(500, 'Each embeded document in multi-document YAML must have id attribute defined.');
                     }
 
+                    $document['id'] = basename(str_replace('.yaml', '', $filePath));
+                }
+
+                if ($parent !== null) {
                     if (!isset($document['type'])) {
                         $document['type'] = $parent;
                     }
@@ -236,7 +239,7 @@ class FlatYAMLDB_Element
     protected function indexDB()
     {
         // Indexes
-        $indexFilePath = $this->rootPath.'/.'.$this->instanceType.'@$indexes.json';
+        $indexFilePath = $this->rootPath.'/.cache/'.$this->instanceType.'/$indexes.json';
 
         if (file_exists($indexFilePath)) {
             $this->indexFilePathMTime = filemtime($indexFilePath);
@@ -691,7 +694,7 @@ class FlatYAMLDB_Element
      */
     protected function cachefilePath($filePath)
     {
-        return dirname($filePath).'/.'.$this->instanceType.'@'.trim(str_replace('.yaml', '', basename($filePath)), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
+        return dirname($filePath).'/.cache/'.$this->instanceType.'/'.trim(str_replace('.yaml', '', basename($filePath)), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
     }
 
     protected function loadCache($filePath)
@@ -707,15 +710,25 @@ class FlatYAMLDB_Element
 
     protected function storeCache($data, $filePath)
     {
+        if (!strstr($filePath, '.json')) {
+            $filePath = $this->cachefilePath($filePath);
+        }
+
         if (!strstr($filePath, $this->instanceType)) {
             throw new HTTPException(500, 'Every cache filename must be namespaced using `$this->instanceType`. File: '.basename($filePath).' $this->instanceType: '.$this->instanceType);
         }
 
-        if (strstr($filePath, '.json')) {
-            file_put_contents($filePath, json_encode($data));
-        } else {
-            file_put_contents($this->cachefilePath($filePath), json_encode($data));
+        $dirPath = dirname($filePath);
+
+        if (!file_exists($dirPath)) {
+            @mkdir($dirPath, 0755, true);
         }
+
+        if (!file_exists($dirPath)) {
+            throw new HTTPException(500, 'Failed to create cache folder.');
+        }
+
+        file_put_contents($filePath, json_encode($data));
 
         return $this;
     }

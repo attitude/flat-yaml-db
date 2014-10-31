@@ -9,6 +9,11 @@ use \attitude\Elements\DependencyContainer;
 
 class ContentDB_Element extends FlatYAMLDB_Element
 {
+    /**
+     * @var string $instanceType Please provide custom namespace for your class
+     */
+    protected $instanceType = 'content';
+
     protected function addData($data)
     {
         if (isset($data['id']) && isset($data['type'])) {

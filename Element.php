@@ -10,6 +10,10 @@ class FlatYAMLDB_Element
 {
     protected $filepath;
     protected $filepaths = array();
+    /**
+     * @var string $instanceType Please provide custom namespace for your class
+     */
+    protected $instanceType = 'default';
 
     protected $cache_filepath = null;
 

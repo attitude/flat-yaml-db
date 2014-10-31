@@ -15,6 +15,11 @@ use \attitude\Elements\DependencyContainer;
  */
 class TranslationsDB_Element extends FlatYAMLDB_Element
 {
+    /**
+     * @var string $instanceType Please provide custom namespace for your class
+     */
+    protected $instanceType = 'translations';
+
     const ZERO     = 'zero';
     const ONE      = 'one';
     const TWO      = 'two';

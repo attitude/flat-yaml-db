@@ -41,7 +41,7 @@ class FlatYAMLDB_Element
             header('X-Using-DB-Cache: true');
 
             try {
-                $this->loadCache();
+                $this->loadCache($filepath);
             } catch (HTTPException $e) {
                 header('X-Using-DB-Cache: false');
             }
@@ -186,7 +186,7 @@ class FlatYAMLDB_Element
 
         // Recreate indexes and store cache
         $this->createDBIndex();
-        $this->storeCache();
+        $this->storeCache($filepath);
 
         return $this;
     }
@@ -552,9 +552,21 @@ class FlatYAMLDB_Element
         return true;
     }
 
-    protected function loadCache()
+    /**
+     * Returns generated JSON cache path for filepath
+     *
+     * @param string $filepaht
+     * @return string
+     *
+     */
+    protected function cacheFilePath($filepath)
     {
-        $cache = json_decode(file_get_contents($this->cache_filepath), true);
+        return dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
+    }
+
+    protected function loadCache($filepath)
+    {
+        $cache = json_decode(file_get_contents($this->cacheFilePath($filepath)), true);
 
         if (!isset($cache['indexes']) || !isset($cache['data'])) {
             throw new HTTPException(500, 'Cache is damadged');
@@ -566,9 +578,9 @@ class FlatYAMLDB_Element
         return $this;
     }
 
-    protected function storeCache()
+    protected function storeCache($filepath)
     {
-        file_put_contents($this->cache_filepath, json_encode(array(
+        file_put_contents($this->cacheFilePath($filepath), json_encode(array(
             'indexes' => $this->indexes,
             'data'    => $this->data
         )));
@@ -579,7 +591,7 @@ class FlatYAMLDB_Element
     protected function cacheNeedsReload($filepath)
     {
         // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
-        $cache_filepath = dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
+        $cache_filepath = $this->cacheFilePath($filepath);
 
         if (! file_exists($cache_filepath)) {
             return true;

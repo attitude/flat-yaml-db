@@ -35,7 +35,7 @@ class FlatYAMLDB_Element
         if ($nocache || $this->cacheNeedsReload()) {
             header('X-Using-DB-Cache: false');
 
-            $this->loadYAML($this->filepath);
+            $this->loadYAMLFiles((array) $this->filepath);
         } else {
             header('X-Using-DB-Cache: true');
 
@@ -49,7 +49,7 @@ class FlatYAMLDB_Element
         // Something might get wrong last time
         if (empty($this->data)) {
             header('X-Using-DB-Cache: false');
-            $this->loadYAML($this->filepath);
+            $this->loadYAMLFiles((array) $this->filepath);
         }
 
         return $this;
@@ -81,12 +81,14 @@ class FlatYAMLDB_Element
         }
     }
 
-    protected function loadYAML($filepath)
+    protected function loadYAMLFiles(array $YAMLfiles)
     {
-        try {
-            $this->loadYAMLFile($filepath);
-        } catch (HTTPException $e) {
-            trigger_error('Failed to load '.basename($filepath).'.');
+        foreach ($YAMLfiles as $filePath) {
+            try {
+                $this->loadYAMLFile($filePath);
+            } catch (HTTPException $e) {
+                trigger_error('Failed to load '.basename($filePath).'.');
+            }
         }
 
         $this->createDBIndex();

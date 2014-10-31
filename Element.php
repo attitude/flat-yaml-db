@@ -21,25 +21,22 @@ class FlatYAMLDB_Element
     {
         $this->now = time();
 
-        if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
-            throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
-        }
-
-        $this->filepath = $filepath;
-
-        // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
-        $this->cache_filepath = dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
-
         foreach ($index_keys as $index_key) {
             if (is_string($index_key) && strlen(trim($index_key)) > 0) {
                 $this->index_keys[] = $index_key;
             }
         }
 
-        if ($nocache || $this->cacheNeedsReload()) {
+        if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
+            throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
+        }
+
+        $this->filepath = $filepath;
+
+        if ($nocache || $this->cacheNeedsReload($filepath)) {
             header('X-Using-DB-Cache: false');
 
-            $this->loadYAMLFiles((array) $this->filepath);
+            $this->loadYAMLFiles((array) $filepath);
         } else {
             header('X-Using-DB-Cache: true');
 
@@ -53,7 +50,7 @@ class FlatYAMLDB_Element
         // Something might get wrong last time
         if (empty($this->data)) {
             header('X-Using-DB-Cache: false');
-            $this->loadYAMLFiles((array) $this->filepath);
+            $this->loadYAMLFiles((array) $filepath);
         }
 
         return $this;
@@ -571,13 +568,16 @@ class FlatYAMLDB_Element
         return $this;
     }
 
-    protected function cacheNeedsReload()
+    protected function cacheNeedsReload($filepath)
     {
-        if (! file_exists($this->cache_filepath)) {
+        // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
+        $cache_filepath = dirname($filepath).'/.'.trim(basename($filepath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
+
+        if (! file_exists($cache_filepath)) {
             return true;
         }
 
-        if (filemtime($this->cache_filepath) < filemtime($this->filepath)) {
+        if (filemtime($cache_filepath) < filemtime($filepath)) {
             return true;
         }
 

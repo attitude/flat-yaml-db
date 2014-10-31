@@ -310,7 +310,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         // listing of related items
         try {
             $data = $this->query(array(
-                'type' => "collection",
+                'type' => "collections",
                 'route' => $uri,
                 '_limit' => 1
             ), true);

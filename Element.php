@@ -8,26 +8,64 @@ use \attitude\Elements\DependencyContainer;
 
 class FlatYAMLDB_Element
 {
-    protected $filepath;
-    protected $filepaths = array();
     /**
      * @var string $instanceType Please provide custom namespace for your class
      */
     protected $instanceType = 'default';
 
-    protected $cache_filepath = null;
+    /**
+     * @var string $rootPath Path where to store indexes cache
+     */
+    protected $rootPath;
 
+    /* @TODO: remove */
+    protected $filePath;
+
+    /**
+     * @var array $filePaths Array of YAML source files
+     */
+    protected $filePaths = array();
+
+    /**
+     * @var int $lastMTime Last modified timestamp of any YAML source file
+     */
+    protected $lastMTime = 0;
+
+    /**
+     * @var int $indexFilePathMTime Last modified timestamp of content indexes
+     */
+
+    /**
+     * @var int $now Current timestamp
+    */
     protected $now = 0;
+
+    /* @TODO: remove */
+    protected $cache_filePath = null;
 
     protected $data = array();
     protected $indexes = array();
     protected $index_keys = array();
 
+    /**
+     * @var bool $nocache Disables cache (must be in sync with `$this->cache`)
+     */
     protected $nocache;
+
+    /**
+     * @var bool $cache Enables cache (must be in sync with `$this->nocache`)
+     */
     protected $cache;
 
-    public function __construct($filepath, $index_keys = array(), $nocache = false)
+    public function __construct($filePath, array $index_keys, $rootPath, $nocache = false)
     {
+        if (!is_string($rootPath) || strlen(trim($rootPath))===0 || !realpath($rootPath) || !is_dir($rootPath)) {
+            throw new HTTPException(500, 'Path to YAML database root dir does not exit or value is invalid.');
+        }
+
+        // Set path to database root dir
+        $this->rootPath = rtrim($rootPath, '/');
+
         $this->now = time();
         $this->nocache = !! $nocache;
         $this->cache   = !  $nocache;
@@ -38,12 +76,12 @@ class FlatYAMLDB_Element
             }
         }
 
-        if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
+        if (!is_string($filePath) || strlen(trim($filePath))===0 || !realpath($filePath)) {
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
         }
 
         // @TODO: replace with index
-        $this->filepath = $filepath;
+        $this->filePath = $filePath;
 
         if ($nocache) {
             header('X-Using-DB-Cache: false');
@@ -51,12 +89,12 @@ class FlatYAMLDB_Element
             header('X-Using-DB-Cache: true');
         }
 
-        $this->connectDatabase((array) $filepath);
+        $this->connectDatabase((array) $filePath);
 
         return $this;
     }
 
-    protected function fileStat($filepath)
+    protected function fileStat($filePath)
     {
         $now = date('c', $this->now);
 
@@ -65,30 +103,38 @@ class FlatYAMLDB_Element
             'updated' => $now,
         );
 
-        $stat = stat($filepath);
+        $stat = stat($filePath);
 
         if (isset($stat['ctime'])) {
             $dates['created'] = date('c', $stat['ctime']);
+
+            if ($dates['created'] > $this->lastMTime) {
+                $this->lastMTime = $dates['created'];
+            }
         }
 
         if (isset($stat['mtime'])) {
             $dates['updated'] = date('c', $stat['mtime']);
+
+            if ($dates['updated'] > $this->lastMTime) {
+                $this->lastMTime = $dates['updated'];
+            }
         }
 
         return $dates;
     }
 
-    protected function loadYAMLFile($filepath)
+    protected function loadYAMLFile($filePath)
     {
-        if (!is_string($filepath) || strlen(trim($filepath))===0 || !realpath($filepath)) {
+        if (!is_string($filePath) || strlen(trim($filePath))===0 || !realpath($filePath)) {
             throw new HTTPException(500, 'Path to YAML source does not exit or value is invalid.');
         }
 
         $data = [];
 
-        $dates = $this->fileStat($filepath);
+        $dates = $this->fileStat($filePath);
 
-        $db = preg_split("/^[ \t]*...[ \t]*\n/m", trim(file_get_contents($filepath)));
+        $db = preg_split("/^[ \t]*...[ \t]*\n/m", "---\n".trim(file_get_contents($filePath))."\n...\n");
 
         foreach ($db as $document) {
             if (strlen($document)===0) {
@@ -111,13 +157,15 @@ class FlatYAMLDB_Element
                     $document['updated'] = $dates['updated'];
                 }
 
+                $document['$$filePath$$'] = $filePath;
+
                 $data[] = $document;
             } catch (\Exception $e) {
                 trigger_error($e->getMessage()." in document:\n".$document);
             }
         }
 
-        $this->storeCache($data, $filepath);
+        $this->storeCache($data, $filePath);
 
         return $data;
     }
@@ -133,7 +181,7 @@ class FlatYAMLDB_Element
             // Add file source
             $this->filePaths[] = $filePath;
 
-            if ($this->nocache || $this->cacheNeedsReload($filepath)) {
+            if ($this->nocache || $this->cacheNeedsReload($filePath)) {
                 try {
                     $data = $this->loadYAMLFile($filePath);
                 } catch (HTTPException $e) {
@@ -141,7 +189,7 @@ class FlatYAMLDB_Element
                 }
             } else {
                 try {
-                    $data = $this->loadCache($filepath);
+                    $data = $this->loadCache($filePath);
                 } catch (HTTPException $e) {
                     header('X-Using-DB-Cache: partial');
                 }
@@ -154,79 +202,92 @@ class FlatYAMLDB_Element
                 } catch (HTTPException $e) {
                     trigger_error('Failed to load '.basename($filePath).'.');
                 }
-            } else {
-                foreach ($data as &$document) {
-                    // Store any documents in cache...
-                    $this->addData($document);
-                    // ... and remember which document was in which file
-                    $this->addIndex('$$filepaths$$', $filePath, $filePathIndex);
-                }
+            }
+
+            foreach ($data as &$document) {
+                // Store any documents in cache...
+                $this->addData($document);
             }
         }
 
-        $this->createDBIndex();
+        // Indexes
+        $indexFilePath = $this->rootPath.'/.indexes@'.$this->instanceType.'.json';
 
-        // Walk data and resolve any replacements
-        foreach ($this->data as &$result) {
-            // Resolve relative paths
-            $replacementNeeded = false;
+        if (file_exists($indexFilePath)) {
+            $this->indexFilePathMTime = filemtime($indexFilePath);
+        }
 
-            if (isset($result['collection']) && isset($result['route'])) {
-                if (is_array($result['route'])) {
-                    foreach ($result['route'] as &$resultRoute) {
-                        if (!strstr('^@starts@^'.$resultRoute, '^@starts@^'.'/')) {
+        // Create indexes
+        if (empty($this->index_keys)) {
+            return $this;
+        }
+
+        if ($this->nocache || $this->indexFilePathMTime < $this->lastMTime) {
+            $this->createDBIndex();
+
+            // Walk data and resolve any replacements
+            foreach ($this->data as &$result) {
+                // Resolve relative paths
+                $replacementNeeded = false;
+
+                if (isset($result['collection']) && isset($result['route'])) {
+                    if (is_array($result['route'])) {
+                        foreach ($result['route'] as &$resultRoute) {
+                            if (!strstr('^@starts@^'.$resultRoute, '^@starts@^'.'/')) {
+                                $replacementNeeded = true;
+                            }
+                        }
+                    } elseif (is_string($result['route'])) {
+                        if (!strstr('^@starts@^'.$result['route'], '^@starts@^'.'/')) {
                             $replacementNeeded = true;
                         }
                     }
-                } elseif (is_string($result['route'])) {
-                    if (!strstr('^@starts@^'.$result['route'], '^@starts@^'.'/')) {
-                        $replacementNeeded = true;
-                    }
                 }
-            }
 
-            if ($replacementNeeded) {
-                try {
-                    $parent = $this->query(array('type' => 'collections', 'id' => $result['collection']), true);
+                if ($replacementNeeded) {
+                    try {
+                        $parent = $this->query(array('type' => 'collections', 'id' => $result['collection']), true);
 
-                    if ($parent['route']) {
-                        $result['route'] = $this->expandRelativeRoutes($parent['route'], $result['route']);
-                    }
-                } catch (HTTPException $e) {
-                    trigger_error('Failed to find parent collection with `id` '.$result['collection']);
-                }
-            }
-
-            // Dynamic data
-            foreach ($result as $k => &$v) {
-                if (is_string($v)) {
-                    if (preg_match('/\{\{([^\}]+?)\}\}/', $v, $matches)) {
-                        if (array_key_exists($matches[1], $result)) {
-                            $v = str_replace($matches[0], $result[$matches[1]], $v);
+                        if ($parent['route']) {
+                            $result['route'] = $this->expandRelativeRoutes($parent['route'], $result['route']);
                         }
+                    } catch (HTTPException $e) {
+                        trigger_error('Failed to find parent collection with `id` '.$result['collection']);
                     }
-                } elseif (is_array($v)) {
-                    foreach ($v as &$vv) {
-                        if (is_string($vv)) {
-                            if (preg_match('/\{\{([^\}]+?)\}\}/', $vv, $matches)) {
-                                if (array_key_exists($matches[1], $result)) {
-                                    $vv = str_replace($matches[0], $result[$matches[1]], $vv);
+                }
+
+                // Dynamic data
+                foreach ($result as $k => &$v) {
+                    if (is_string($v)) {
+                        if (preg_match('/\{\{([^\}]+?)\}\}/', $v, $matches)) {
+                            if (array_key_exists($matches[1], $result)) {
+                                $v = str_replace($matches[0], $result[$matches[1]], $v);
+                            }
+                        }
+                    } elseif (is_array($v)) {
+                        foreach ($v as &$vv) {
+                            if (is_string($vv)) {
+                                if (preg_match('/\{\{([^\}]+?)\}\}/', $vv, $matches)) {
+                                    if (array_key_exists($matches[1], $result)) {
+                                        $vv = str_replace($matches[0], $result[$matches[1]], $vv);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+
+            // Flush indexes
+            $this->indexes = array();
+
+            // Recreate indexes and store cache
+            $this->createDBIndex(true);
+
+            $this->storeCache($this->indexes, $indexFilePath);
+        } else {
+            $this->indexes = json_decode(file_get_contents($indexFilePath), true);
         }
-
-        // Flush indexes
-        $this->indexes = array();
-
-        // Recreate indexes and store cache
-        $this->createDBIndex();
-
-        // $indexFilePath = $this->cacheFilePath
-        // $this->storeCache($filepath);
 
         return $this;
     }
@@ -238,17 +299,26 @@ class FlatYAMLDB_Element
         return $this;
     }
 
-    protected function createDBIndex()
+    protected function createDBIndex($final = false)
     {
-        $index_keys = array();
-
         foreach ((array) $this->index_keys as $k) {
             $index_keys[] = $k;           // Always public
             $index_keys[] = '_'.$k;       // Internal, maybe public (internal loops etc.)
             $index_keys[] = '__'.$k.'__'; // Internal, never public
         }
 
-        foreach ($this->data as $array_index => $document) {
+        foreach ($this->data as $array_index => & $document) {
+            if ($final) {
+                if (!isset($document['$$filePath$$'])) {
+                    throw new HTTPException(500, 'Unexpected: Script generated $$filePath$$ attribute is missing.');
+                }
+
+                $filePath = $document['$$filePath$$'];
+                unset($document['$$filePath$$']);
+
+                $this->addIndex('$$filePath$$', $filePath, $array_index);
+            }
+
             foreach ((array) $index_keys as $index_key) {
                 if (isset($document[$index_key])) {
                     $data =& $document[$index_key];
@@ -593,20 +663,20 @@ class FlatYAMLDB_Element
     }
 
     /**
-     * Returns generated JSON cache path for filepath
+     * Returns generated JSON cache path for filePath
      *
      * @param string $filepaht
      * @return string
      *
      */
-    protected function cacheFilePath($filepath, $prefix = '')
+    protected function cachefilePath($filePath)
     {
-        return dirname($filepath).'/.'.trim(basename($filepath), '.').$prefix.DependencyContainer::get('yamldb::cacheAdd', '.json');
+        return dirname($filePath).'/.'.$this->instanceType.'@'.trim(basename($filePath), '.').DependencyContainer::get('yamldb::cacheAdd', '.json');
     }
 
-    protected function loadCache($filepath)
+    protected function loadCache($filePath)
     {
-        return json_decode(file_get_contents($this->cacheFilePath($filepath)), true);
+        return json_decode(file_get_contents($this->cachefilePath($filePath)), true);
 
         if (!isset($cache['indexes']) || !isset($cache['data'])) {
             throw new HTTPException(500, 'Cache is damadged');
@@ -615,23 +685,31 @@ class FlatYAMLDB_Element
         return $this;
     }
 
-    protected function storeCache($data, $filepath)
+    protected function storeCache($data, $filePath)
     {
-        file_put_contents($this->cacheFilePath($filepath), json_encode($data));
+        if (!strstr($filePath, $this->instanceType)) {
+            throw new HTTPException(500, 'Every cache filename must be namespaced using `$this->instanceType`. File: '.basename($filePath).' $this->instanceType: '.$this->instanceType);
+        }
+
+        if (strstr($filePath, '.json')) {
+            file_put_contents($filePath, json_encode($data));
+        } else {
+            file_put_contents($this->cachefilePath($filePath), json_encode($data));
+        }
 
         return $this;
     }
 
-    protected function cacheNeedsReload($filepath)
+    protected function cacheNeedsReload($filePath)
     {
         // Store cache as hidden `/path/to/.db_name.yaml.json` file next to the `/path/to/db_name.yaml`
-        $cache_filepath = $this->cacheFilePath($filepath);
+        $cache_filePath = $this->cachefilePath($filePath);
 
-        if (! file_exists($cache_filepath)) {
+        if (! file_exists($cache_filePath)) {
             return true;
         }
 
-        if (filemtime($cache_filepath) < filemtime($filepath)) {
+        if (filemtime($cache_filePath) < filemtime($filePath)) {
             return true;
         }
 

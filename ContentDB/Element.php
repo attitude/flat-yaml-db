@@ -23,7 +23,7 @@ class ContentDB_Element extends FlatYAMLDB_Element
         return $this;
     }
 
-    protected function createDBIndex()
+    protected function createDBIndex($final = false)
     {
         $index_keys = array();
 
@@ -34,7 +34,18 @@ class ContentDB_Element extends FlatYAMLDB_Element
             $index_keys[] = '__'.$k.'__'; // Internal, never public
         }
 
-        foreach ($this->data as $document) {
+        foreach ($this->data as $array_index =>& $document) {
+            if ($final) {
+                if (!isset($document['$$filePath$$'])) {
+                    throw new HTTPException(500, 'Unexpected: Script generated $$filePath$$ attribute is missing.');
+                }
+
+                $filePath = $document['$$filePath$$'];
+                unset($document['$$filePath$$']);
+
+                $this->addIndex('$$filePath$$', $filePath, $array_index);
+            }
+
             $id   = @$document['id']   ? $document['id']   : false;
             $type = @$document['type'] ? $document['type'] : false;
 

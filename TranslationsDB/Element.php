@@ -43,6 +43,14 @@ class TranslationsDB_Element extends FlatYAMLDB_Element
     }
 
     /**
+     * Do not create index
+     */
+    protected function createDBIndex($final = false)
+    {
+        return $this;
+    }
+
+    /**
      *
      */
     public function translate($one='', $other='', $count=0, $offset=0)

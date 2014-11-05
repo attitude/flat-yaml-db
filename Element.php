@@ -92,25 +92,25 @@ class FlatYAMLDB_Element
         $now = date('c', $this->now);
 
         $dates = array(
-            'created' => $now,
-            'updated' => $now,
+            'dateCreated' => $now,
+            'dateModified' => $now,
         );
 
         $stat = stat($filePath);
 
         if (isset($stat['ctime'])) {
-            $dates['created'] = date('c', $stat['ctime']);
+            $dates['dateCreated'] = date('c', $stat['ctime']);
 
-            if ($dates['created'] > $this->lastMTime) {
-                $this->lastMTime = $dates['created'];
+            if ($dates['dateCreated'] > $this->lastMTime) {
+                $this->lastMTime = $dates['dateCreated'];
             }
         }
 
         if (isset($stat['mtime'])) {
-            $dates['updated'] = date('c', $stat['mtime']);
+            $dates['dateModified'] = date('c', $stat['mtime']);
 
-            if ($dates['updated'] > $this->lastMTime) {
-                $this->lastMTime = $dates['updated'];
+            if ($dates['dateModified'] > $this->lastMTime) {
+                $this->lastMTime = $dates['dateModified'];
             }
         }
 
@@ -142,12 +142,12 @@ class FlatYAMLDB_Element
             try {
                 $document = Yaml::parse($document);
 
-                if (!isset($document['created'])) {
-                    $document['created'] = $dates['created'];
+                if (!isset($document['dateCreated'])) {
+                    $document['dateCreated'] = $dates['dateCreated'];
                 }
 
-                if (!isset($document['updated'])) {
-                    $document['updated'] = $dates['updated'];
+                if (!isset($document['dateModified'])) {
+                    $document['dateModified'] = $dates['dateModified'];
                 }
 
                 $document['$$filePath$$'] = $filePath;
